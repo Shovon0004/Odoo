@@ -20,6 +20,8 @@ router.put('/:id/reject-quotation', orderController.rejectQuotation);
 // Payment & Security Deposit routes
 router.get('/:orderId/payment-summary', paymentController.getPaymentSummary);
 router.post('/:orderId/payment', paymentController.initiatePayment);
+router.post('/:orderId/razorpay-order', paymentController.createRazorpayOrder);
+router.post('/:orderId/verify-razorpay', paymentController.verifyRazorpayPayment);
 router.get('/:orderId/payments', paymentController.getPaymentsByOrderId);
 router.get('/:orderId/security-deposit', paymentController.getSecurityDeposit);
 

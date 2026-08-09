@@ -38,16 +38,23 @@ const getAllUsers = async (req, res, next) => {
  */
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, profile_image, address } = req.body;
+    const { name, profile_image, address, business_name, gst_number } = req.body;
 
     if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
       throw new AppError('Name cannot be empty', 400);
+    }
+
+    // Validate GST number format (basic: 15 alphanumeric chars) if provided
+    if (gst_number && !/^[0-9A-Z]{15}$/.test(gst_number.trim().toUpperCase())) {
+      throw new AppError('GST number must be 15 alphanumeric characters (e.g. 22AAAAA0000A1Z5)', 400);
     }
 
     const updatedUser = await userService.updateUserProfile(req.user.id, {
       name,
       profile_image,
       address,
+      business_name,
+      gst_number,
     });
 
     if (!updatedUser) {

@@ -88,7 +88,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
       name: product.name,
       base_price: product.base_price,
       price: product.base_price,
-      img: product.image_url || 'https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=500&q=80',
+      img: product.image_url || '',
       description: product.description,
     };
 
@@ -178,7 +178,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
   const name = product.name;
   const price = product.base_price || 0;
   const description = product.description || 'High-performance rental equipment.';
-  const imgUrl = product.image_url || 'https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=1000&q=80';
+  const imgUrl = product.image_url || '';
   const isAvailable = product.status === 'ACTIVE' && product.is_active !== false;
 
   return (
@@ -201,17 +201,24 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col lg:flex-row">
         
         {/* Left: Product Image */}
-        <div className="w-full lg:w-1/2 bg-gray-50 p-8 flex items-center justify-center relative border-b lg:border-b-0 lg:border-r border-gray-200">
+          <div className="w-full lg:w-1/2 bg-gray-50 p-8 flex items-center justify-center relative border-b lg:border-b-0 lg:border-r border-gray-200">
           <div className={`absolute top-4 left-4 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${isAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800 flex items-center gap-1'}`}>
             {!isAvailable && <AlertTriangle className="w-3 h-3" />}
             {isAvailable ? 'In Stock' : 'Out of Stock'}
           </div>
           
-          <img
-            src={imgUrl} 
-            alt={name} 
-            className={`w-full max-w-md h-auto object-contain drop-shadow-xl ${!isAvailable ? 'grayscale opacity-75' : ''}`} 
-          />
+          {imgUrl ? (
+            <img
+              src={imgUrl} 
+              alt={name} 
+              className={`w-full max-w-md h-auto object-contain drop-shadow-xl ${!isAvailable ? 'grayscale opacity-75' : ''}`} 
+            />
+          ) : (
+            <div className="w-full max-w-md h-72 flex flex-col items-center justify-center gap-3 text-gray-300">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-20 h-20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={0.8}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              <span className="text-sm font-medium text-gray-400">No product image</span>
+            </div>
+          )}
         </div>
 
         {/* Right: Product Info */}

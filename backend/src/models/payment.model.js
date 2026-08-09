@@ -43,7 +43,7 @@ const Payment = sequelize.define('Payment', {
     defaultValue: 'RENTAL',
   },
   payment_method: {
-    type: DataTypes.ENUM('ONLINE', 'CASH'),
+    type: DataTypes.ENUM('ONLINE', 'CASH', 'RAZORPAY'),
     allowNull: false,
   },
   status: {

@@ -107,12 +107,19 @@ export default function WishlistPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {wishlistItems.map((item) => {
             const price = Number(item.price || item.base_price || 0);
-            const imgUrl = item.img || item.image_url || 'https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=500&q=80';
+            const imgUrl = item.img || item.image_url || '';
 
             return (
               <div key={item.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col">
                 <div className="h-48 bg-gray-50 relative p-4 flex items-center justify-center">
-                  <img src={imgUrl} alt={item.name} className="max-h-full object-contain" />
+                  {imgUrl ? (
+                    <img src={imgUrl} alt={item.name} className="max-h-full object-contain" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-300">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                      <span className="text-xs font-medium text-gray-400">No Image</span>
+                    </div>
+                  )}
                   <button 
                     onClick={() => handleRemove(item.id)}
                     className="absolute top-3 right-3 p-2 bg-white/80 rounded-full text-gray-400 hover:text-red-600 transition-colors shadow-sm"

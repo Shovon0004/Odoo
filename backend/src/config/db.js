@@ -29,6 +29,7 @@ const initDb = async () => {
         ALTER TABLE products ADD COLUMN IF NOT EXISTS vendor_id UUID REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE;
         ALTER TABLE quotation_templates ADD COLUMN IF NOT EXISTS vendor_id UUID REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE;
         ALTER TABLE pricelists ADD COLUMN IF NOT EXISTS vendor_id UUID REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;
       `);
     } catch (colErr) {
       console.log('vendor_id migration check:', colErr.message);

@@ -342,6 +342,59 @@ const cancelOrder = async (customerId, orderId) => {
 };
 
 /**
+ * Validate stock availability for all items in an order for its rental date range.
+ * Throws AppError if any item is out of stock / overbooked.
+ */
+const validateStockAvailabilityForOrder = async (orderId, transaction = null) => {
+  const order = await Order.findByPk(orderId, {
+    include: [{ model: OrderItem, as: 'items' }],
+    transaction,
+  });
+
+  if (!order || !order.items || order.items.length === 0) return;
+
+  for (const item of order.items) {
+    const product = await Product.findByPk(item.product_id, { transaction });
+    if (!product || product.status !== 'ACTIVE') {
+      throw new AppError(`Product "${item.product_name || 'Item'}" is inactive or unavailable`, 400);
+    }
+
+    const startDate = item.start_date || order.start_date;
+    const endDate = item.end_date || order.end_date;
+
+    // Check reserved quantity by OTHER confirmed / active orders during overlapping date range
+    const [[{ reserved }]] = await sequelize.query(
+      `SELECT COALESCE(SUM(oi.quantity), 0) AS reserved
+       FROM rental_order_items oi
+       INNER JOIN rental_orders o ON oi.order_id = o.id
+       WHERE oi.product_id = :productId
+         AND o.id != :orderId
+         AND o.status IN ('CONFIRMED', 'READY_FOR_PICKUP', 'PICKED_UP', 'ACTIVE')
+         AND (o.start_date <= :endDate AND o.end_date >= :startDate)`,
+      {
+        replacements: {
+          productId: item.product_id,
+          orderId: order.id,
+          startDate,
+          endDate,
+        },
+        transaction,
+      }
+    );
+
+    const activeReservedSum = Number(reserved) || 0;
+    const availableQuantity = Number(product.quantity_on_hand) - activeReservedSum;
+
+    if (availableQuantity < item.quantity) {
+      throw new AppError(
+        `Cannot confirm order: Product "${product.name}" is OUT OF STOCK for the selected dates (${startDate} to ${endDate}). Available: ${Math.max(0, availableQuantity)}, Requested: ${item.quantity}.`,
+        400
+      );
+    }
+  }
+};
+
+/**
  * Customer accepts quotation online (SENT -> CONFIRMED)
  */
 const acceptCustomerQuotation = async (customerId, orderId) => {
@@ -357,6 +410,9 @@ const acceptCustomerQuotation = async (customerId, orderId) => {
   if (order.status !== 'SENT' && order.status !== 'DRAFT') {
     throw new AppError(`Cannot accept quotation in current status: ${order.status}`, 400);
   }
+
+  // Validate stock availability before confirming
+  await validateStockAvailabilityForOrder(orderId);
 
   order.status = 'CONFIRMED';
   await order.save();
@@ -483,6 +539,11 @@ const updateOrderStatus = async (orderId, newStatus) => {
     throw new AppError('Invalid order status', 400);
   }
 
+  // If transitioning to CONFIRMED or ACTIVE, validate stock availability first
+  if (['CONFIRMED', 'READY_FOR_PICKUP', 'PICKED_UP', 'ACTIVE'].includes(newStatus) && !['CONFIRMED', 'READY_FOR_PICKUP', 'PICKED_UP', 'ACTIVE'].includes(order.status)) {
+    await validateStockAvailabilityForOrder(orderId);
+  }
+
   order.status = newStatus;
   await order.save();
 
@@ -499,4 +560,5 @@ module.exports = {
   rejectCustomerQuotation,
   getAllOrdersForAdmin,
   updateOrderStatus,
+  validateStockAvailabilityForOrder,
 };

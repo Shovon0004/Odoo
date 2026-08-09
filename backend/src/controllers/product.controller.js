@@ -9,19 +9,22 @@ const AppError = require('../utils/errors');
  */
 const createProduct = async (req, res, next) => {
   try {
-    const { name, description, category, base_price, status } = req.body;
+    const { name, description, category, base_price, status, image_url,
+      product_type, quantity_on_hand, cost_price, is_published,
+      periodicity, pickup_time, return_time, padding_time, late_fees,
+      security_deposit, attributes } = req.body;
 
     validateProduct({ name, category, base_price, status });
 
     const vendorId = req.user?.role === 'VENDOR' ? req.user.id : (req.body.vendor_id || null);
 
     const newProduct = await productService.createProduct({
-      name,
-      description,
-      category,
-      base_price,
-      status,
+      name, description, category, base_price, status,
       vendor_id: vendorId,
+      image_url: image_url || null,
+      product_type, quantity_on_hand, cost_price, is_published,
+      periodicity, pickup_time, return_time, padding_time, late_fees,
+      security_deposit, attributes,
     });
 
     return successResponse(res, 201, 'Product created successfully', newProduct);
@@ -71,12 +74,17 @@ const getProductById = async (req, res, next) => {
 
 /**
  * PUT /api/products/:id
- * Update product information (Admin only)
+ * Update product information (Admin & Vendor)
  */
 const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, description, category, base_price, status } = req.body;
+    const { 
+      name, description, category, base_price, status, image_url,
+      product_type, quantity_on_hand, cost_price, is_published,
+      periodicity, pickup_time, return_time, padding_time,
+      late_fees, security_deposit, attributes
+    } = req.body;
 
     if (base_price !== undefined && (isNaN(base_price) || Number(base_price) < 0)) {
       throw new AppError('Base price must be a non-negative number', 400);
@@ -86,12 +94,11 @@ const updateProduct = async (req, res, next) => {
     }
 
     const updatedProduct = await productService.updateProduct(id, {
-      name,
-      description,
-      category,
-      base_price,
-      status,
-    });
+      name, description, category, base_price, status, image_url,
+      product_type, quantity_on_hand, cost_price, is_published,
+      periodicity, pickup_time, return_time, padding_time,
+      late_fees, security_deposit, attributes
+    }, req.user);
 
     if (!updatedProduct) {
       throw new AppError('Product not found', 404);
@@ -105,18 +112,24 @@ const updateProduct = async (req, res, next) => {
 
 /**
  * DELETE /api/products/:id
- * Soft-delete product (Deactivate - Admin only)
+ * Soft-delete ACTIVE products, or PERMANENTLY delete INACTIVE products
  */
 const deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const deactivatedProduct = await productService.deactivateProduct(id);
+    const { permanent } = req.query;
 
-    if (!deactivatedProduct) {
+    const result = await productService.deleteProduct(id, req.user, permanent === 'true');
+
+    if (!result) {
       throw new AppError('Product not found', 404);
     }
 
-    return successResponse(res, 200, 'Product deactivated successfully', deactivatedProduct);
+    const message = result.isDeleted 
+      ? 'Product permanently deleted successfully' 
+      : 'Product deactivated successfully';
+
+    return successResponse(res, 200, message, result);
   } catch (error) {
     next(error);
   }

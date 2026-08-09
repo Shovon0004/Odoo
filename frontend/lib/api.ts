@@ -83,8 +83,8 @@ export const productApi = {
     apiFetch(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   updateProduct: (id: string, data: any) =>
     apiFetch(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: (id: string) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
-  deleteProduct: (id: string) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
+  delete: (id: string, permanent?: boolean) => apiFetch(`/products/${id}${permanent ? '?permanent=true' : ''}`, { method: 'DELETE' }),
+  deleteProduct: (id: string, permanent?: boolean) => apiFetch(`/products/${id}${permanent ? '?permanent=true' : ''}`, { method: 'DELETE' }),
   checkAvailability: (id: string, startDate: string, endDate: string) =>
     apiFetch(`/products/${id}/availability?start_date=${startDate}&end_date=${endDate}`),
   getRentalPeriods: () => apiFetch('/rental-periods'),
@@ -133,6 +133,10 @@ export const orderApi = {
   getPaymentSummary: (orderId: string) => apiFetch(`/orders/${orderId}/payment-summary`),
   payOrder: (orderId: string, payment_method: string = 'ONLINE') =>
     apiFetch(`/orders/${orderId}/payment`, { method: 'POST', body: JSON.stringify({ payment_method }) }),
+  createRazorpayOrder: (orderId: string) =>
+    apiFetch(`/orders/${orderId}/razorpay-order`, { method: 'POST' }),
+  verifyRazorpayPayment: (orderId: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    apiFetch(`/orders/${orderId}/verify-razorpay`, { method: 'POST', body: JSON.stringify(data) }),
   acceptQuotation: (orderId: string) =>
     apiFetch(`/orders/${orderId}/accept-quotation`, { method: 'PUT' }),
   rejectQuotation: (orderId: string) =>
@@ -215,5 +219,18 @@ export const pricelistApi = {
     apiFetch(`/admin/pricelists/${pricelistId}/rules/${ruleId}`, { method: 'DELETE' }),
   calculatePrice: (data: { productId: string; quantity: number; basePrice: number; pricelistId?: string }) =>
     apiFetch('/admin/pricelists/calculate-price', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// Contact API
+export const contactApi = {
+  submitInquiry: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    category?: string;
+    subject: string;
+    message: string;
+  }) => apiFetch('/contact', { method: 'POST', body: JSON.stringify(data) }),
 };
 

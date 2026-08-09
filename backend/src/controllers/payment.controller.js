@@ -117,9 +117,50 @@ const getAllAdminSecurityDeposits = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/orders/:orderId/razorpay-order
+ * Authenticated CUSTOMER only
+ */
+const createRazorpayOrder = async (req, res, next) => {
+  try {
+    const customerId = req.user.id;
+    const { orderId } = req.params;
+
+    const rzpOrder = await paymentService.createRazorpayOrder(customerId, orderId);
+
+    return successResponse(res, 201, 'Razorpay order created successfully', rzpOrder);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/orders/:orderId/verify-razorpay
+ * Authenticated CUSTOMER only
+ */
+const verifyRazorpayPayment = async (req, res, next) => {
+  try {
+    const customerId = req.user.id;
+    const { orderId } = req.params;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    const result = await paymentService.verifyRazorpayPayment(customerId, orderId, {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    });
+
+    return successResponse(res, 200, result.message, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getPaymentSummary,
   initiatePayment,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
   getPaymentsByOrderId,
   getSecurityDeposit,
   getAllAdminPayments,

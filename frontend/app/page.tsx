@@ -42,7 +42,7 @@ function CatalogContent() {
           name: p.name,
           price: Number(p.base_price) || 1500,
           period: 'day',
-          img: p.image_url || 'https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=500&q=80',
+          img: p.image_url || '',
           variants: ['Standard'],
           stock: p.status === 'ACTIVE' && p.is_active !== false,
           status: p.status || (p.is_active !== false ? 'ACTIVE' : 'INACTIVE'),
@@ -257,14 +257,19 @@ function CatalogContent() {
                     href={`/product/${product.id}`}
                     className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all group flex flex-col justify-between cursor-pointer"
                   >
-                    <div className="relative h-56 bg-gray-100 overflow-hidden">
-                      <Image 
-                        src={product.img} 
-                        alt={product.name} 
-                        fill 
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className={`object-cover group-hover:scale-105 transition-transform duration-300 ${!isAvailable ? 'grayscale opacity-75' : ''}`}
-                      />
+                      <div className="relative h-56 bg-gray-100 overflow-hidden">
+                        {product.img ? (
+                          <img 
+                            src={product.img} 
+                            alt={product.name} 
+                            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${!isAvailable ? 'grayscale opacity-75' : ''}`}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-14 h-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                            <span className="text-xs font-medium text-gray-400">No Image</span>
+                          </div>
+                        )}
                       
                       {/* Wishlist Button */}
                       <button 

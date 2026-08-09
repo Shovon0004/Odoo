@@ -20,6 +20,7 @@ const createProduct = async ({
   late_fees = 150,
   security_deposit = 100,
   attributes = [],
+  image_url = null,
   vendor_id = null
 }) => {
   const product = await Product.create({
@@ -40,6 +41,7 @@ const createProduct = async ({
     late_fees: Number(late_fees) || 150,
     security_deposit: Number(security_deposit) || 100,
     attributes: attributes || [],
+    image_url: image_url || null,
   });
   return product.toJSON();
 };
@@ -80,9 +82,15 @@ const getProductById = async (id) => {
 /**
  * Update product information
  */
-const updateProduct = async (id, updateData) => {
+const updateProduct = async (id, updateData, user = null) => {
   const product = await Product.findByPk(id);
   if (!product) return null;
+
+  // Vendor ownership check
+  if (user && user.role === 'VENDOR' && product.vendor_id && product.vendor_id !== user.id) {
+    const AppError = require('../utils/errors');
+    throw new AppError('You do not have permission to edit this product', 403);
+  }
 
   if (updateData.name !== undefined) product.name = updateData.name.trim();
   if (updateData.description !== undefined) product.description = updateData.description;
@@ -100,21 +108,35 @@ const updateProduct = async (id, updateData) => {
   if (updateData.late_fees !== undefined) product.late_fees = Number(updateData.late_fees);
   if (updateData.security_deposit !== undefined) product.security_deposit = Number(updateData.security_deposit);
   if (updateData.attributes !== undefined) product.attributes = updateData.attributes;
+  if (updateData.image_url !== undefined) product.image_url = updateData.image_url || null;
 
   await product.save();
   return product.toJSON();
 };
 
 /**
- * Deactivate product (soft-delete sets status to INACTIVE)
+ * Delete product: Soft-deactivates ACTIVE products, and PERMANENTLY deletes INACTIVE products
  */
-const deactivateProduct = async (id) => {
+const deleteProduct = async (id, user = null, forcePermanent = false) => {
   const product = await Product.findByPk(id);
   if (!product) return null;
 
+  // Vendor ownership check
+  if (user && user.role === 'VENDOR' && product.vendor_id && product.vendor_id !== user.id) {
+    const AppError = require('../utils/errors');
+    throw new AppError('You do not have permission to delete this product', 403);
+  }
+
+  // Permanently delete if already INACTIVE or if forcePermanent is true
+  if (product.status === 'INACTIVE' || forcePermanent) {
+    await product.destroy();
+    return { isDeleted: true, id };
+  }
+
+  // Soft delete (deactivate) if currently ACTIVE
   product.status = 'INACTIVE';
   await product.save();
-  return product.toJSON();
+  return { isDeleted: false, product: product.toJSON() };
 };
 
 /**
@@ -189,6 +211,7 @@ module.exports = {
   getAllProducts,
   getProductById,
   updateProduct,
-  deactivateProduct,
+  deleteProduct,
+  deactivateProduct: deleteProduct,
   checkProductAvailability,
 };

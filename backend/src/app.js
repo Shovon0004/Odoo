@@ -12,6 +12,7 @@ const invoiceRoutes = require('./routes/invoice.routes');
 const quotationTemplateRoutes = require('./routes/quotation_template.routes');
 const pricelistRoutes = require('./routes/pricelist.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const contactRoutes = require('./routes/contact.routes');
 const { customErrorHandler, globalFallbackErrorHandler } = require('./middleware/error.middleware');
 const AppError = require('./utils/errors');
 
@@ -39,6 +40,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/rental-periods', rentalPeriodRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/contact', contactRoutes);
 app.use('/api/admin/dashboard', dashboardRoutes);
 app.use('/api/admin/invoices', invoiceRoutes);
 app.use('/api/admin/quotation-templates', quotationTemplateRoutes);

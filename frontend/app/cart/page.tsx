@@ -119,17 +119,17 @@ export default function Cart() {
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 space-y-6">
             {cartItems.map((item) => {
               const itemPrice = Number(item.price || item.unit_price || item.product?.base_price || item.base_price || 0);
-              const imgUrl = item.product?.image_url || item.img || item.image_url || item.ProductVariant?.Product?.image_url || 'https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=500&q=80';
+              const imgUrl = item.product?.image_url || item.img || item.image_url || item.ProductVariant?.Product?.image_url || '';
               const name = item.product?.name || item.name || item.product_name || item.ProductVariant?.Product?.name || 'Rental Equipment';
 
               return (
                 <div key={item.id} className="flex gap-4 pb-6 border-b border-gray-100 last:border-0 last:pb-0 items-center">
                   <div className="w-20 h-20 relative rounded-lg overflow-hidden bg-gray-50 border border-gray-200 shrink-0 flex items-center justify-center">
-                    <img 
-                      src={imgUrl} 
-                      alt={name} 
-                      className="w-full h-full object-cover" 
-                    />
+                    {imgUrl ? (
+                      <img src={imgUrl} alt={name} className="w-full h-full object-cover" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                    )}
                   </div>
                   <div className="flex-1">
                     <h3 className="font-bold text-gray-900 text-base">{name}</h3>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Plus, LayoutGrid, LayoutList, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
+import { Search, Plus, LayoutGrid, LayoutList, RefreshCw, Trash2, CheckCircle2, Edit } from 'lucide-react';
 import { catalogApi } from '@/lib/api';
 
 export default function ProductsPage() {
@@ -26,16 +26,20 @@ export default function ProductsPage() {
     fetchProducts();
   }, []);
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to deactivate product "${name}"?`)) return;
+  const handleDelete = async (id: string, name: string, isInactive: boolean) => {
+    const confirmMsg = isInactive 
+      ? `Are you sure you want to PERMANENTLY DELETE product "${name}"?\n\nThis action CANNOT be undone.`
+      : `Are you sure you want to deactivate product "${name}"?`;
+
+    if (!confirm(confirmMsg)) return;
     
     const res = await catalogApi.deleteProduct(id);
     if (res.success) {
-      setMessage(`Product "${name}" deactivated successfully.`);
+      setMessage(`Product "${name}" ${isInactive ? 'permanently deleted' : 'deactivated'} successfully.`);
       fetchProducts();
-      setTimeout(() => setMessage(null), 3000);
+      setTimeout(() => setMessage(null), 3500);
     } else {
-      alert(res.message || 'Failed to deactivate product.');
+      alert(res.message || `Failed to ${isInactive ? 'delete' : 'deactivate'} product.`);
     }
   };
 
@@ -139,7 +143,14 @@ export default function ProductsPage() {
               return (
                 <div key={product.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow group flex flex-col">
                   <div className="h-48 bg-gray-100 relative">
-                    <img src={product.image_url || 'https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=500&q=80'} alt={product.name} className="w-full h-full object-cover p-2 group-hover:scale-105 transition-transform duration-300" />
+                    {product.image_url ? (
+                      <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                        <span className="text-xs font-medium text-gray-400">No Image</span>
+                      </div>
+                    )}
                     <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${statusStr === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-700'}`}>
                       {statusStr}
                     </span>
@@ -151,15 +162,27 @@ export default function ProductsPage() {
                     </div>
                     <div className="flex justify-between items-center mt-4 pt-2 border-t border-gray-100">
                       <span className="font-bold text-[#CD2C58] text-sm">₹{product.base_price || 0}</span>
-                      {statusStr === 'ACTIVE' && (
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`/admin/products/${product.id}/edit`}
+                          className="p-1.5 rounded transition-all text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+                          title="Edit Product"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Link>
                         <button 
-                          onClick={() => handleDelete(product.id, product.name)}
-                          className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors"
-                          title="Deactivate Product"
+                          onClick={() => handleDelete(product.id, product.name, statusStr === 'INACTIVE')}
+                          className={`p-1.5 rounded transition-all flex items-center gap-1 text-xs font-semibold ${
+                            statusStr === 'INACTIVE' 
+                              ? 'text-red-600 bg-red-50 hover:bg-red-100 border border-red-200' 
+                              : 'text-gray-400 hover:text-red-600'
+                          }`}
+                          title={statusStr === 'INACTIVE' ? 'Permanently Delete Product' : 'Deactivate Product'}
                         >
                           <Trash2 className="w-4 h-4" />
+                          {statusStr === 'INACTIVE' && <span>Delete</span>}
                         </button>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -192,15 +215,28 @@ export default function ProductsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {statusStr === 'ACTIVE' && (
-                          <button 
-                            onClick={() => handleDelete(product.id, product.name)}
-                            className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors"
-                            title="Deactivate Product"
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/admin/products/${product.id}/edit`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded transition-all text-xs font-semibold text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border border-gray-200"
+                            title="Edit Product"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Edit className="w-3.5 h-3.5" />
+                            Edit
+                          </Link>
+                          <button 
+                            onClick={() => handleDelete(product.id, product.name, statusStr === 'INACTIVE')}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded transition-all text-xs font-semibold ${
+                              statusStr === 'INACTIVE' 
+                                ? 'text-red-600 bg-red-50 hover:bg-red-100 border border-red-200' 
+                                : 'text-gray-400 hover:text-red-600'
+                            }`}
+                            title={statusStr === 'INACTIVE' ? 'Permanently Delete Product' : 'Deactivate Product'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {statusStr === 'INACTIVE' ? 'Delete Permanently' : 'Deactivate'}
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );

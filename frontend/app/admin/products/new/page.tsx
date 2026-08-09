@@ -12,7 +12,7 @@ export default function NewProductPage() {
   
   // General Info
   const [name, setName] = useState('');
-  const [imageUrl, setImageUrl] = useState('https://images.unsplash.com/photo-1587831990711-23ca6441447b?w=500&q=80');
+  const [imageUrl, setImageUrl] = useState('');
   const [productType, setProductType] = useState<'Goods' | 'Service'>('Goods');
   const [quantityOnHand, setQuantityOnHand] = useState('100.00');
   const [salesPrice, setSalesPrice] = useState('25.00');
@@ -167,27 +167,33 @@ export default function NewProductPage() {
         
         {/* Name and Image Area */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col md:flex-row gap-8 items-start">
-          <div className="w-36 h-36 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 shrink-0 overflow-hidden relative group">
+          <div className="w-36 h-36 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 shrink-0 overflow-hidden relative group cursor-pointer">
             {imageUrl ? (
               <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
             ) : (
               <>
                 <ImageIcon className="w-8 h-8 mb-1 text-gray-400" />
-                <span className="text-xs font-bold text-gray-400">Add Image</span>
+                <span className="text-xs font-bold text-gray-400">Click to Upload</span>
               </>
             )}
             <input 
-              type="text"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="Paste Image URL..."
-              className="absolute inset-x-0 bottom-0 text-[10px] bg-black/75 text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity border-none outline-none text-center"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onloadend = () => setImageUrl(reader.result as string);
+                  reader.readAsDataURL(file);
+                }
+              }}
+              className="absolute inset-0 opacity-0 cursor-pointer"
             />
           </div>
           
           <div className="flex-1 space-y-4 w-full">
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Product</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Product Name</label>
               <input 
                 type="text" 
                 value={name}
@@ -199,14 +205,25 @@ export default function NewProductPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Image URL</label>
-              <input 
-                type="url" 
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="w-full text-xs border border-gray-300 rounded-xl p-2.5 focus:ring-1 focus:ring-[#CD2C58] focus:border-[#CD2C58] outline-none"
-                placeholder="https://images.unsplash.com/..."
-              />
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Image (URL or File Upload)</label>
+              <div className="flex gap-2">
+                <input 
+                  type="url" 
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  className="w-full text-xs border border-gray-300 rounded-xl p-2.5 focus:ring-1 focus:ring-[#CD2C58] focus:border-[#CD2C58] outline-none"
+                  placeholder="Paste Image URL or click box to upload file..."
+                />
+                {imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl('')}
+                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-xl"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -182,6 +182,60 @@ const sendReturnReminderEmail = async (order, toEmail, customerName = 'Customer'
   return await sendMailWithFallback(mailOptions, 'ReturnReminder');
 };
 
+const sendContactInquiryEmail = async (contactData) => {
+  const { firstName, lastName, email, phone, category, subject, message, ticketId } = contactData;
+  const adminEmail = process.env.GMAIL_USER || 'support@odoorentals.com';
+
+  // 1. Email to Support Team / Admin
+  const adminMailOptions = {
+    from: `"Odoo Rentals Contact" <${process.env.GMAIL_USER || 'noreply@rental.com'}>`,
+    to: adminEmail,
+    subject: `[${ticketId}] ${category}: ${subject}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #CD2C58; text-align: center;">New Customer Inquiry</h2>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 15px 0;">
+          <p style="margin: 5px 0;"><strong>Ticket Ref:</strong> ${ticketId}</p>
+          <p style="margin: 5px 0;"><strong>From:</strong> ${firstName} ${lastName} (&lt;${email}&gt;)</p>
+          <p style="margin: 5px 0;"><strong>Phone:</strong> ${phone || 'N/A'}</p>
+          <p style="margin: 5px 0;"><strong>Category:</strong> ${category}</p>
+          <p style="margin: 5px 0;"><strong>Subject:</strong> ${subject}</p>
+        </div>
+        <div style="padding: 15px; background-color: #ffffff; border-left: 4px solid #CD2C58; margin: 15px 0;">
+          <p style="margin: 0; white-space: pre-wrap; font-size: 14px; color: #334155;">${message}</p>
+        </div>
+      </div>
+    `,
+  };
+
+  // 2. Auto-reply confirmation to Customer
+  const customerMailOptions = {
+    from: `"Odoo Rentals Support" <${process.env.GMAIL_USER || 'support@odoorentals.com'}>`,
+    to: email,
+    subject: `Inquiry Received [${ticketId}] — Odoo Rentals Support`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #CD2C58; text-align: center;">Thank You for Contacting Us!</h2>
+        <p>Hello <strong>${firstName}</strong>,</p>
+        <p>We have received your support request. Our team is reviewing it and will respond shortly.</p>
+        
+        <div style="background-color: #f1f5f9; padding: 15px; border-radius: 6px; margin: 15px 0;">
+          <p style="margin: 5px 0;"><strong>Ticket Reference:</strong> <span style="font-family: monospace; font-size: 16px; color: #CD2C58; font-weight: bold;">${ticketId}</span></p>
+          <p style="margin: 5px 0;"><strong>Category:</strong> ${category}</p>
+          <p style="margin: 5px 0;"><strong>Subject:</strong> ${subject}</p>
+        </div>
+
+        <p style="font-size: 13px; color: #64748b;">If you have additional details to add, please reply directly to this email with reference <strong>${ticketId}</strong>.</p>
+        <p style="font-size: 12px; color: #94a3b8; margin-top: 30px;">Odoo Rentals Support Team</p>
+      </div>
+    `,
+  };
+
+  const adminResult = await sendMailWithFallback(adminMailOptions, 'ContactInquiryAdmin');
+  await sendMailWithFallback(customerMailOptions, 'ContactInquiryCustomer');
+  return adminResult;
+};
+
 module.exports = {
   sendPasswordResetEmail,
   sendQuotationEmail,
@@ -189,4 +243,5 @@ module.exports = {
   sendInvoiceNotificationEmail,
   sendPickupReminderEmail,
   sendReturnReminderEmail,
+  sendContactInquiryEmail,
 };

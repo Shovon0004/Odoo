@@ -51,6 +51,16 @@ const User = sequelize.define(
       allowNull: true,
       defaultValue: null,
     },
+    business_name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
+    gst_number: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      defaultValue: null,
+    },
     reset_password_token: {
       type: DataTypes.STRING,
       allowNull: true,

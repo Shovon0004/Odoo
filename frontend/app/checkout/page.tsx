@@ -56,8 +56,22 @@ export default function Checkout() {
     setLoadingCart(false);
   };
 
+  const [rzpLoaded, setRzpLoaded] = useState(false);
+
   useEffect(() => {
     loadCart();
+    // Preload Razorpay Checkout SDK
+    if (typeof window !== 'undefined') {
+      if ((window as any).Razorpay) {
+        setRzpLoaded(true);
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.async = true;
+        script.onload = () => setRzpLoaded(true);
+        document.body.appendChild(script);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -83,6 +97,8 @@ export default function Checkout() {
   const deliveryFee = deliveryMethod === 'DELIVERY' && subtotal > 0 ? 500 : 0;
   const deposit = subtotal > 0 ? 1000 : 0;
   const totalAmount = subtotal + deliveryFee + deposit;
+
+  const [paymentOption, setPaymentOption] = useState<'RAZORPAY' | 'CASH'>('RAZORPAY');
 
   const handlePlaceOrder = async () => {
     setPlacingOrder(true);
@@ -110,11 +126,16 @@ export default function Checkout() {
         delivery_address: delAddress,
       });
 
-      if (orderRes.success && orderRes.data) {
-        const order = orderRes.data;
+      if (!orderRes.success || !orderRes.data) {
+        setPlacingOrder(false);
+        setError(orderRes.message || 'Failed to create order. Please ensure you are logged in as a customer.');
+        return;
+      }
 
-        // 3. Process Payment via ONLINE provider
-        const payRes = await orderApi.payOrder(order.id, 'ONLINE');
+      const order = orderRes.data;
+
+      if (paymentOption === 'CASH') {
+        const payRes = await orderApi.payOrder(order.id, 'CASH');
         setPlacingOrder(false);
 
         if (payRes.success) {
@@ -125,10 +146,80 @@ export default function Checkout() {
         } else {
           setError(payRes.message || 'Payment processing failed');
         }
-      } else {
-        setPlacingOrder(false);
-        setError(orderRes.message || 'Failed to create order. Please ensure you are logged in as a customer.');
+        return;
       }
+
+      // 3. Process Razorpay Payment Gateway
+      const rzpOrderRes = await orderApi.createRazorpayOrder(order.id);
+      if (!rzpOrderRes.success || !rzpOrderRes.data) {
+        setPlacingOrder(false);
+        setError(rzpOrderRes.message || 'Failed to initiate Razorpay transaction.');
+        return;
+      }
+
+      if (!(window as any).Razorpay) {
+        setPlacingOrder(false);
+        setError('Razorpay Checkout SDK is still loading or was blocked by browser extension. Please refresh or try again.');
+        return;
+      }
+
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+
+      const rzpData = rzpOrderRes.data;
+
+      const options = {
+        key: rzpData.key_id,
+        amount: rzpData.amount,
+        currency: rzpData.currency,
+        name: "Odoo Rental Management",
+        description: `Order #${rzpData.order_number} Rental & Security Deposit`,
+        order_id: rzpData.razorpay_order_id,
+        handler: async function (response: any) {
+          setPlacingOrder(true);
+          try {
+            const verifyRes = await orderApi.verifyRazorpayPayment(order.id, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            setPlacingOrder(false);
+
+            if (verifyRes.success) {
+              setCreatedOrder(verifyRes.data?.order || order);
+              localStorage.removeItem('cart');
+              window.dispatchEvent(new Event('cartUpdated'));
+              setStep(4);
+            } else {
+              setError(verifyRes.message || 'Razorpay payment verification failed');
+            }
+          } catch (vErr: any) {
+            setPlacingOrder(false);
+            setError(vErr.message || 'Payment verification failed');
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setPlacingOrder(false);
+            setError('Razorpay payment modal closed by user.');
+          },
+        },
+        prefill: {
+          name: user?.name || "Customer",
+          email: user?.email || "customer@example.com",
+          contact: user?.phone || "9876543210",
+        },
+        theme: {
+          color: "#CD2C58",
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        setPlacingOrder(false);
+        setError(`Payment Failed: ${response.error?.description || 'Transaction declined'}`);
+      });
+      rzp.open();
     } catch (err: any) {
       setPlacingOrder(false);
       setError(err.message || 'An unexpected error occurred during checkout');
@@ -190,11 +281,17 @@ export default function Checkout() {
                   {cartItems.map((item) => {
                     const price = Number(item.price || item.unit_price || item.product?.base_price || item.base_price || 0);
                     const name = item.product?.name || item.name || item.product_name || 'Rental Equipment';
-                    const imgUrl = item.product?.image_url || item.img || item.image_url || 'https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=200&q=80';
+                    const imgUrl = item.product?.image_url || item.img || item.image_url || '';
 
                     return (
                       <div key={item.id} className="flex items-center gap-4 p-4 border border-gray-100 rounded-xl bg-gray-50/50">
-                        <img src={imgUrl} alt={name} className="w-16 h-16 object-cover rounded-lg bg-white border border-gray-200" />
+                        <div className="w-16 h-16 rounded-lg bg-white border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+                          {imgUrl ? (
+                            <img src={imgUrl} alt={name} className="w-full h-full object-cover" />
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                          )}
+                        </div>
                         <div className="flex-1">
                           <h3 className="font-bold text-gray-900 text-sm">{name}</h3>
                           <div className="text-xs text-[#CD2C58] font-semibold">
@@ -344,21 +441,43 @@ export default function Checkout() {
                 </div>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
-                <div className="relative">
-                  <input type="text" defaultValue="4242 4242 4242 4242" className="w-full bg-white border border-gray-300 rounded-lg py-3 px-4 pl-12 text-sm focus:outline-none focus:border-[#CD2C58]" />
-                  <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <div className="space-y-3 mb-6">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block mb-2">
+                  Select Payment Gateway
+                </label>
+                
+                <div 
+                  onClick={() => setPaymentOption('RAZORPAY')}
+                  className={`p-4 border-2 rounded-xl cursor-pointer flex items-center justify-between transition-all ${
+                    paymentOption === 'RAZORPAY' ? 'border-[#CD2C58] bg-white shadow-sm' : 'border-gray-200 bg-gray-100/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input type="radio" checked={paymentOption === 'RAZORPAY'} readOnly className="text-[#CD2C58] focus:ring-[#CD2C58]" />
+                    <div>
+                      <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                        Razorpay Gateway 
+                        <span className="px-2 py-0.5 text-[10px] bg-blue-100 text-blue-700 font-extrabold rounded-full">TEST MODE</span>
+                      </div>
+                      <div className="text-xs text-gray-500">Cards, UPI (GPay/PhonePe), NetBanking & Wallets</div>
+                    </div>
+                  </div>
+                  <CreditCard className="w-5 h-5 text-gray-400" />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
-                  <input type="text" defaultValue="12/28" className="w-full bg-white border border-gray-300 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-[#CD2C58]" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CVC</label>
-                  <input type="text" defaultValue="123" className="w-full bg-white border border-gray-300 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-[#CD2C58]" />
+
+                <div 
+                  onClick={() => setPaymentOption('CASH')}
+                  className={`p-4 border-2 rounded-xl cursor-pointer flex items-center justify-between transition-all ${
+                    paymentOption === 'CASH' ? 'border-[#CD2C58] bg-white shadow-sm' : 'border-gray-200 bg-gray-100/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input type="radio" checked={paymentOption === 'CASH'} readOnly className="text-[#CD2C58] focus:ring-[#CD2C58]" />
+                    <div>
+                      <div className="font-bold text-gray-900 text-sm">Instant Cash / Test Checkout</div>
+                      <div className="text-xs text-gray-500">Pay on store pickup or delivery</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -374,14 +493,16 @@ export default function Checkout() {
               <button 
                 onClick={handlePlaceOrder}
                 disabled={placingOrder}
-                className="bg-[#CD2C58] text-white px-8 py-3 rounded-lg font-semibold flex items-center gap-2 hover:bg-[#E06B80] transition-colors shadow-md shadow-[#CD2C58]/20 disabled:opacity-50"
+                className="bg-[#CD2C58] text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 hover:bg-[#b02248] transition-all shadow-md shadow-[#CD2C58]/20 disabled:opacity-50"
               >
                 {placingOrder ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" /> Processing Payment...
                   </>
                 ) : (
-                  'Pay & Confirm Order'
+                  <>
+                    {paymentOption === 'RAZORPAY' ? 'Pay via Razorpay' : 'Confirm Order'} <ArrowRight className="w-4 h-4" />
+                  </>
                 )}
               </button>
             </div>

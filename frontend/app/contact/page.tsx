@@ -15,12 +15,17 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  Building
+  Building,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
+import { contactApi } from '@/lib/api';
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [ticketId, setTicketId] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -32,11 +37,20 @@ export default function ContactPage() {
     message: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const generatedTicket = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
-    setTicketId(generatedTicket);
-    setSubmitted(true);
+    setLoading(true);
+    setError(null);
+
+    const res = await contactApi.submitInquiry(formData);
+    setLoading(false);
+
+    if (res.success) {
+      setTicketId(res.data?.ticketId || `TKT-${Math.floor(100000 + Math.random() * 900000)}`);
+      setSubmitted(true);
+    } else {
+      setError(res.message || 'Failed to send inquiry. Please try again.');
+    }
   };
 
   return (
@@ -258,11 +272,27 @@ export default function ContactPage() {
                 ></textarea>
               </div>
 
+              {error && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
               <button 
                 type="submit"
-                className="w-full py-4 bg-[#CD2C58] hover:bg-[#b02248] text-white font-bold rounded-2xl shadow-lg shadow-[#CD2C58]/30 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm"
+                disabled={loading}
+                className="w-full py-4 bg-[#CD2C58] hover:bg-[#b02248] text-white font-bold rounded-2xl shadow-lg shadow-[#CD2C58]/30 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50"
               >
-                <Send className="w-4 h-4" /> Send Inquiry Message
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Sending Email Notification...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" /> Send Inquiry Message
+                  </>
+                )}
               </button>
             </form>
           )}
