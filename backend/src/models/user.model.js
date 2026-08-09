@@ -51,6 +51,11 @@ const User = sequelize.define(
       allowNull: true,
       defaultValue: null,
     },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
     business_name: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -58,6 +63,36 @@ const User = sequelize.define(
     },
     gst_number: {
       type: DataTypes.STRING(20),
+      allowNull: true,
+      defaultValue: null,
+    },
+    wallet_balance: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0.00,
+    },
+    is_approved: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    kyc_status: {
+      type: DataTypes.ENUM('NOT_SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED'),
+      allowNull: false,
+      defaultValue: 'NOT_SUBMITTED',
+    },
+    kyc_id_type: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
+    kyc_id_number: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
+    kyc_document_url: {
+      type: DataTypes.TEXT,
       allowNull: true,
       defaultValue: null,
     },

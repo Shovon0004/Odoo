@@ -263,11 +263,18 @@ export default function OrdersDashboard() {
                   const orderDate = new Date(order.created_at || order.createdAt || Date.now()).toLocaleDateString();
                   const orderNum = order.order_number || (order.id ? order.id.slice(0, 8) : 'ORD');
 
-                  return (
-                    <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4 font-semibold text-[#CD2C58]">#{orderNum}</td>
-                      <td className="px-6 py-4 font-medium text-gray-900">{customerName}</td>
-                      <td className="px-6 py-4 font-semibold text-gray-900">₹{amount.toFixed(2)}</td>
+                    return (
+                      <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4 font-semibold text-[#CD2C58]">#{orderNum}</td>
+                        <td className="px-6 py-4 font-medium text-gray-900">
+                          <div className="font-bold">{customerName}</div>
+                          {(order.customer?.phone || order.phone) && (
+                            <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                              📞 {order.customer?.phone || order.phone}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-gray-900">₹{amount.toFixed(2)}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           order.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-800' :
@@ -443,11 +450,37 @@ export default function OrdersDashboard() {
 
             {/* Order Details Grid */}
             <div className="space-y-4 text-sm mb-6">
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                <div className="font-bold text-gray-900 mb-1">{selectedOrder.customer?.name || selectedOrder.Customer?.name || 'Customer'}</div>
-                <div className="text-xs text-gray-500">{selectedOrder.customer?.email || selectedOrder.Customer?.email}</div>
-                {selectedOrder.delivery_address && (
-                  <div className="text-xs text-gray-600 mt-2 font-medium">📍 Address: {selectedOrder.delivery_address}</div>
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-gray-900 text-sm">
+                    👤 {selectedOrder.customer?.name || selectedOrder.Customer?.name || 'Customer'}
+                  </div>
+                  <span className="text-xs bg-purple-100 text-purple-800 font-bold px-2.5 py-0.5 rounded-full">
+                    {selectedOrder.customer?.role || 'CUSTOMER'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600">
+                  {(selectedOrder.customer?.email || selectedOrder.Customer?.email) && (
+                    <div className="flex items-center gap-1.5 font-medium">
+                      ✉️ {selectedOrder.customer?.email || selectedOrder.Customer?.email}
+                    </div>
+                  )}
+
+                  {(selectedOrder.customer?.phone || selectedOrder.phone) && (
+                    <div className="flex items-center gap-1.5 font-bold text-gray-900">
+                      📞 <a href={`tel:${selectedOrder.customer?.phone || selectedOrder.phone}`} className="hover:text-[#CD2C58] underline">
+                        {selectedOrder.customer?.phone || selectedOrder.phone}
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {(selectedOrder.delivery_address || selectedOrder.customer?.address) && (
+                  <div className="text-xs text-gray-700 pt-2 font-medium border-t border-gray-200/60 mt-1">
+                    📍 <span className="font-bold text-gray-900">Delivery & Contact Address:</span>{' '}
+                    {selectedOrder.delivery_address || selectedOrder.customer?.address}
+                  </div>
                 )}
               </div>
 

@@ -62,6 +62,8 @@ export const authApi = {
   getProfile: () => apiFetch('/auth/me'),
   updateProfile: (data: any) =>
     apiFetch('/users/profile', { method: 'PUT', body: JSON.stringify(data) }),
+  submitKyc: (data: { kyc_id_type: string; kyc_id_number: string; kyc_document_url: string }) =>
+    apiFetch('/users/kyc', { method: 'POST', body: JSON.stringify(data) }),
   getUsers: () => apiFetch('/users'),
   forgotPassword: (email: string) =>
     apiFetch('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
@@ -117,8 +119,10 @@ export const cartApi = {
   getCart: () => apiFetch('/cart'),
   addItem: (itemData: { product_id?: string; variant_id?: string; product_variant_id?: string; rental_period_id?: string; start_date?: string; end_date?: string; quantity?: number; [key: string]: any }) =>
     apiFetch('/cart/items', { method: 'POST', body: JSON.stringify(itemData) }),
-  updateItem: (itemId: string, itemData: any) =>
-    apiFetch(`/cart/items/${itemId}`, { method: 'PUT', body: JSON.stringify(itemData) }),
+  updateItem: (itemId: string, itemData: number | { quantity?: number; [key: string]: any }) => {
+    const payload = typeof itemData === 'number' ? { quantity: itemData } : itemData;
+    return apiFetch(`/cart/items/${itemId}`, { method: 'PUT', body: JSON.stringify(payload) });
+  },
   removeItem: (itemId: string) =>
     apiFetch(`/cart/items/${itemId}`, { method: 'DELETE' }),
   clearCart: () => apiFetch('/cart', { method: 'DELETE' }),
@@ -141,6 +145,14 @@ export const orderApi = {
     apiFetch(`/orders/${orderId}/accept-quotation`, { method: 'PUT' }),
   rejectQuotation: (orderId: string) =>
     apiFetch(`/orders/${orderId}/reject-quotation`, { method: 'PUT' }),
+  refundDeposit: (orderId: string, refundAmount: number, note?: string) =>
+    apiFetch(`/admin/orders/${orderId}/refund-deposit`, { method: 'POST', body: JSON.stringify({ refundAmount, note }) }),
+};
+
+// Wallet APIs
+export const walletApi = {
+  getWallet: () => apiFetch('/wallet'),
+  topUpWallet: (amount: number) => apiFetch('/wallet/top-up', { method: 'POST', body: JSON.stringify({ amount }) }),
 };
 
 // Admin Operations & Dashboard APIs
@@ -149,12 +161,24 @@ export const adminApi = {
   getSchedule: (month?: string) => apiFetch(`/admin/schedule${month ? `?month=${month}` : ''}`),
   updateOrderStatus: (orderId: string, status: string) =>
     apiFetch(`/admin/orders/${orderId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  uploadPreRentalHandover: (orderId: string, pre_rental_images: string[]) =>
+    apiFetch(`/admin/orders/${orderId}/pre-rental-handover`, { method: 'PUT', body: JSON.stringify({ pre_rental_images }) }),
+  uploadPostRentalReturn: (orderId: string, post_rental_images: string[]) =>
+    apiFetch(`/admin/orders/${orderId}/post-rental-return`, { method: 'PUT', body: JSON.stringify({ post_rental_images }) }),
+  runAiDamageInspect: (orderId: string) =>
+    apiFetch(`/admin/orders/${orderId}/ai-damage-inspect`, { method: 'POST' }),
+  settleDepositToWallet: (orderId: string, data: { refund_amount: number; damage_deduction: number; notes?: string }) =>
+    apiFetch(`/admin/orders/${orderId}/settle-refund`, { method: 'POST', body: JSON.stringify(data) }),
   sendQuotation: (orderId: string) =>
     apiFetch(`/admin/orders/${orderId}/send`, { method: 'PUT' }),
   confirmOrder: (orderId: string) =>
     apiFetch(`/admin/orders/${orderId}/confirm`, { method: 'PUT' }),
   createInvoice: (orderId: string) =>
     apiFetch(`/admin/orders/${orderId}/create-invoice`, { method: 'POST' }),
+  toggleVendorApproval: (userId: string, is_approved: boolean) =>
+    apiFetch(`/users/${userId}/approval`, { method: 'PUT', body: JSON.stringify({ is_approved }) }),
+  updateKycStatus: (userId: string, kyc_status: string) =>
+    apiFetch(`/users/${userId}/kyc-status`, { method: 'PUT', body: JSON.stringify({ kyc_status }) }),
   getDashboardOverview: () => apiFetch('/admin/dashboard/overview'),
   getActiveRentals: () => apiFetch('/admin/dashboard/active-rentals'),
   getDueToday: () => apiFetch('/admin/dashboard/due-today'),
@@ -232,5 +256,14 @@ export const contactApi = {
     subject: string;
     message: string;
   }) => apiFetch('/contact', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// Cloudinary Upload API
+export const uploadApi = {
+  uploadImage: (image: string, folder?: string) =>
+    apiFetch('/upload', {
+      method: 'POST',
+      body: JSON.stringify({ image, folder }),
+    }),
 };
 

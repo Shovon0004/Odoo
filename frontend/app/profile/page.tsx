@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User as UserIcon, Loader2, CheckCircle2, AlertCircle, Camera, MapPin, Mail, Save } from 'lucide-react';
-import { authApi } from '@/lib/api';
+import { User as UserIcon, Loader2, CheckCircle2, AlertCircle, Camera, MapPin, Mail, Save, Phone } from 'lucide-react';
+import { authApi, uploadApi } from '@/lib/api';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -11,9 +11,46 @@ export default function ProfilePage() {
   const [name, setName] = useState('');
   const [profileImage, setProfileImage] = useState('');
   const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [kycIdType, setKycIdType] = useState('Aadhaar Card');
+  const [kycIdNumber, setKycIdNumber] = useState('');
+  const [kycDocumentUrl, setKycDocumentUrl] = useState('');
+  const [uploadingKycDoc, setUploadingKycDoc] = useState(false);
+  const [submittingKyc, setSubmittingKyc] = useState(false);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size too large. Please select an image under 10MB.');
+      return;
+    }
+
+    setUploadingImage(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await uploadApi.uploadImage(base64, 'profiles');
+        if (res.success && res.data?.url) {
+          setProfileImage(res.data.url);
+        } else {
+          setProfileImage(base64);
+        }
+      } catch (err) {
+        setProfileImage(base64);
+      } finally {
+        setUploadingImage(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -30,6 +67,10 @@ export default function ProfilePage() {
         setName(res.data.name || '');
         setProfileImage(res.data.profile_image || '');
         setAddress(res.data.address || '');
+        setPhone(res.data.phone || '');
+        if (res.data.kyc_id_type) setKycIdType(res.data.kyc_id_type);
+        if (res.data.kyc_id_number) setKycIdNumber(res.data.kyc_id_number);
+        if (res.data.kyc_document_url) setKycDocumentUrl(res.data.kyc_document_url);
       } else {
         // Fallback to localStorage user if available
         const localUser = localStorage.getItem('user');
@@ -44,6 +85,7 @@ export default function ProfilePage() {
             setName(parsed.name || '');
             setProfileImage(parsed.profile_image || '');
             setAddress(parsed.address || '');
+            setPhone(parsed.phone || '');
           } catch (e) {}
         }
       }
@@ -66,6 +108,7 @@ export default function ProfilePage() {
       name: name.trim(),
       profile_image: profileImage.trim(),
       address: address.trim(),
+      phone: phone.trim(),
     });
 
     setSaving(false);
@@ -141,40 +184,20 @@ export default function ProfilePage() {
               type="file" 
               accept="image/*" 
               className="hidden" 
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    if (reader.result) {
-                      setProfileImage(reader.result as string);
-                    }
-                  };
-                  reader.readAsDataURL(file);
-                }
-              }}
+              disabled={uploadingImage}
+              onChange={handleImageUpload}
             />
           </label>
 
           {/* Clean Upload Button */}
           <label className="px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 cursor-pointer transition-all flex items-center gap-2">
-            <Camera className="w-4 h-4 text-[#CD2C58]" /> Upload Image
+            <Camera className="w-4 h-4 text-[#CD2C58]" /> {uploadingImage ? 'Uploading to Cloudinary...' : 'Upload Image'}
             <input 
               type="file" 
               accept="image/*" 
               className="hidden" 
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    if (reader.result) {
-                      setProfileImage(reader.result as string);
-                    }
-                  };
-                  reader.readAsDataURL(file);
-                }
-              }}
+              disabled={uploadingImage}
+              onChange={handleImageUpload}
             />
           </label>
 
@@ -222,6 +245,20 @@ export default function ProfilePage() {
           </div>
 
           <div>
+            <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Phone Number <span className="text-red-500">*</span></label>
+            <div className="relative">
+              <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input 
+                type="tel" 
+                value={phone} 
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 9876543210" 
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#CD2C58] text-gray-900 font-medium" 
+              />
+            </div>
+          </div>
+
+          <div>
             <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Shipping & Delivery Address</label>
             <div className="relative">
               <MapPin className="w-4 h-4 absolute left-3.5 top-3.5 text-gray-400" />
@@ -256,6 +293,134 @@ export default function ProfilePage() {
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Profile
           </button>
         </form>
+      </div>
+
+      {/* Identity & KYC Verification Suite */}
+      <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200 pb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              🛡️ Customer Identity & KYC Verification
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">Upload government identity proof to verify your account for high-value equipment rentals.</p>
+          </div>
+          <span className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${
+            profile?.kyc_status === 'VERIFIED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+            profile?.kyc_status === 'PENDING' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+            profile?.kyc_status === 'REJECTED' ? 'bg-red-100 text-red-800 border border-red-300' :
+            'bg-gray-100 text-gray-700 border border-gray-300'
+          }`}>
+            {profile?.kyc_status === 'VERIFIED' ? '✓ VERIFIED' :
+             profile?.kyc_status === 'PENDING' ? '⏳ PENDING REVIEW' :
+             profile?.kyc_status === 'REJECTED' ? '❌ REJECTED' : '⚠️ NOT SUBMITTED'}
+          </span>
+        </div>
+
+        {profile?.kyc_status === 'VERIFIED' ? (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-4 text-emerald-900 text-xs font-bold">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
+            <div>
+              Your identity has been verified! You have full rental privileges for all equipment categories.
+              <div className="text-[11px] font-normal text-emerald-700 mt-0.5">Verified Document: {profile.kyc_id_type} ({profile.kyc_id_number})</div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Government ID Type</label>
+                <select
+                  value={kycIdType}
+                  onChange={(e) => setKycIdType(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-[#CD2C58]"
+                >
+                  <option value="Aadhaar Card">Aadhaar Card</option>
+                  <option value="Passport">Passport</option>
+                  <option value="Driving License">Driving License</option>
+                  <option value="Voter ID">Voter ID</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">ID Number</label>
+                <input
+                  type="text"
+                  value={kycIdNumber}
+                  onChange={(e) => setKycIdNumber(e.target.value)}
+                  placeholder="e.g. 1234 5678 9012"
+                  className="w-full p-3 border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-[#CD2C58]"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Upload ID Document Photo</label>
+              <div className="h-32 bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden group hover:border-[#CD2C58] transition-colors cursor-pointer">
+                {uploadingKycDoc ? (
+                  <div className="flex items-center gap-2 text-[#CD2C58] font-bold">
+                    <Loader2 className="w-5 h-5 animate-spin" /> Uploading Document...
+                  </div>
+                ) : kycDocumentUrl ? (
+                  <img src={kycDocumentUrl} alt="KYC Document" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-center p-3 text-gray-400">
+                    <Camera className="w-6 h-6 mx-auto mb-1 group-hover:text-[#CD2C58]" />
+                    <span className="font-bold text-gray-700 block text-xs">Click to upload ID photo</span>
+                    <span className="text-[10px] text-gray-400">Clear photo of Aadhaar / Passport / License</span>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setUploadingKycDoc(true);
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                      const base64 = reader.result as string;
+                      const res = await uploadApi.uploadImage(base64, 'kyc');
+                      if (res.success && res.data?.url) {
+                        setKycDocumentUrl(res.data.url);
+                      } else {
+                        setKycDocumentUrl(base64);
+                      }
+                      setUploadingKycDoc(false);
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </div>
+
+              <button
+                onClick={async () => {
+                  if (!kycIdNumber.trim() || !kycDocumentUrl) {
+                    alert('Please provide ID Number and upload Document Photo');
+                    return;
+                  }
+                  setSubmittingKyc(true);
+                  const res = await authApi.submitKyc({
+                    kyc_id_type: kycIdType,
+                    kyc_id_number: kycIdNumber,
+                    kyc_document_url: kycDocumentUrl,
+                  });
+                  setSubmittingKyc(false);
+                  if (res.success) {
+                    setMessage({ type: 'success', text: 'KYC Document submitted successfully! Identity under review.' });
+                    setProfile({ ...profile, kyc_status: 'PENDING' });
+                  } else {
+                    setMessage({ type: 'error', text: res.message || 'KYC submission failed' });
+                  }
+                }}
+                disabled={submittingKyc || uploadingKycDoc}
+                className="w-full py-3 bg-[#CD2C58] text-white font-bold text-xs rounded-xl hover:bg-[#b02248] transition-colors disabled:opacity-50"
+              >
+                {submittingKyc ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Submit KYC Document for Review'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

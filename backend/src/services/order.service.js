@@ -232,7 +232,7 @@ const getOrderDetailsById = async (orderId) => {
       {
         model: User,
         as: 'customer',
-        attributes: ['id', 'name', 'email'],
+        attributes: ['id', 'name', 'email', 'phone', 'address'],
       },
       {
         model: RentalPickup,
@@ -295,7 +295,7 @@ const getCustomerOrderById = async (customerId, orderId) => {
       {
         model: User,
         as: 'customer',
-        attributes: ['id', 'name', 'email'],
+        attributes: ['id', 'name', 'email', 'phone', 'address'],
       },
       {
         model: RentalPickup,
@@ -400,7 +400,7 @@ const validateStockAvailabilityForOrder = async (orderId, transaction = null) =>
 const acceptCustomerQuotation = async (customerId, orderId) => {
   const order = await Order.findOne({
     where: { id: orderId, customer_id: customerId },
-    include: [{ model: User, as: 'customer', attributes: ['id', 'name', 'email'] }],
+    include: [{ model: User, as: 'customer', attributes: ['id', 'name', 'email', 'phone', 'address'] }],
   });
 
   if (!order) {
@@ -491,7 +491,7 @@ const getAllOrdersForAdmin = async (filters = {}) => {
       {
         model: User,
         as: 'customer',
-        attributes: ['id', 'name', 'email'],
+        attributes: ['id', 'name', 'email', 'phone', 'address'],
       },
       {
         model: RentalPickup,

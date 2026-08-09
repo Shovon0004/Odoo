@@ -32,6 +32,13 @@ function CatalogContent() {
   }, [categoryParam]);
 
   useEffect(() => {
+    // Mandatory auth guard
+    const token = localStorage.getItem('token');
+    if (!token && typeof window !== 'undefined') {
+      router.push('/login');
+      return;
+    }
+
     const loadProducts = async () => {
       setLoading(true);
       const res = await catalogApi.getProducts();

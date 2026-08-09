@@ -64,6 +64,26 @@ const Order = sequelize.define(
       allowNull: true,
       defaultValue: null,
     },
+    pre_rental_images: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
+    post_rental_images: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
+    damage_score: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    damage_assessment: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: null,
+    },
   },
   {
     tableName: 'rental_orders',

@@ -12,6 +12,7 @@ const invoiceRoutes = require('./routes/invoice.routes');
 const quotationTemplateRoutes = require('./routes/quotation_template.routes');
 const pricelistRoutes = require('./routes/pricelist.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const uploadRoutes = require('./routes/upload.routes');
 const contactRoutes = require('./routes/contact.routes');
 const { customErrorHandler, globalFallbackErrorHandler } = require('./middleware/error.middleware');
 const AppError = require('./utils/errors');
@@ -20,7 +21,8 @@ const app = express();
 
 // Global Middlewares
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb', strict: false }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Serve static HTML/CSS files for cURL & Postman explorer dashboard
 app.use(express.static(path.join(__dirname, '../public')));
@@ -35,12 +37,16 @@ app.get('/api/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+const walletRoutes = require('./routes/wallet.routes');
+
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/rental-periods', rentalPeriodRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/wallet', walletRoutes);
 app.use('/api/admin/dashboard', dashboardRoutes);
 app.use('/api/admin/invoices', invoiceRoutes);
 app.use('/api/admin/quotation-templates', quotationTemplateRoutes);

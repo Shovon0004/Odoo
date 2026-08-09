@@ -15,16 +15,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const getAdminProfile = async () => {
+      const token = localStorage.getItem('token');
+      if (!token && typeof window !== 'undefined') {
+        router.push('/login?redirect=/admin');
+        return;
+      }
+
       const res = await authApi.getProfile();
+      let userObj = null;
+
       if (res.success && res.data) {
+        userObj = res.data;
         setProfile(res.data);
       } else {
         const localUser = localStorage.getItem('user');
         if (localUser) {
           try {
-            setProfile(JSON.parse(localUser));
+            userObj = JSON.parse(localUser);
+            setProfile(userObj);
           } catch (e) {}
         }
+      }
+
+      // Role Protection Check: Block CUSTOMER accounts from /admin routes
+      if (userObj && userObj.role === 'CUSTOMER' && typeof window !== 'undefined') {
+        router.push('/');
       }
     };
     getAdminProfile();
@@ -64,8 +79,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <header className="bg-[#CD2C58] text-white sticky top-0 z-50">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-6">
-            <Link href="/admin" className="flex items-center gap-2">
-              <LayoutGrid className="w-5 h-5 text-white/90" />
+            <Link href="/admin" className="flex items-center gap-2.5">
+              <img src="/image.png" alt="Logo" className="h-8 w-auto object-contain rounded bg-white/10 p-0.5" />
               <span className="font-bold text-lg tracking-tight">
                 {profile?.role === 'VENDOR' ? 'Odoo Vendor' : 'Odoo Admin'}
               </span>

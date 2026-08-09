@@ -22,6 +22,13 @@ function ProductCatalogContent() {
   const query = searchParams.get('q')?.toLowerCase() || '';
 
   useEffect(() => {
+    // Check mandatory login
+    const token = localStorage.getItem('token');
+    if (!token && typeof window !== 'undefined') {
+      router.push('/login?redirect=/product');
+      return;
+    }
+
     const loadProducts = async () => {
       setLoading(true);
       const res = await catalogApi.getProducts();

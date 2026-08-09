@@ -56,8 +56,36 @@ export default function ProductsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem('user');
+      if (u) setCurrentUser(JSON.parse(u));
+    } catch (e) {}
+  }, []);
+
+  const isVendorPending = currentUser?.role === 'VENDOR' && !currentUser?.is_approved;
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto min-h-[calc(100vh-3.5rem)]">
+      {/* Pending Authorization Warning */}
+      {isVendorPending && (
+        <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div>
+            <h3 className="font-bold text-amber-900 text-sm flex items-center gap-2">
+              ⚠️ Store Authorization Pending SuperAdmin Review
+            </h3>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Your vendor account has not been authorized by SuperAdmin yet. You will be able to add and publish rental products once SuperAdmin authorizes your account.
+            </p>
+          </div>
+          <span className="px-3 py-1.5 bg-amber-200 text-amber-900 font-bold text-xs rounded-xl uppercase tracking-wider shrink-0">
+            Pending Authorization
+          </span>
+        </div>
+      )}
+
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
@@ -72,9 +100,19 @@ export default function ProductsPage() {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
-          <Link href="/admin/products/new" className="px-4 py-2 bg-[#CD2C58] text-white text-sm font-medium rounded-md shadow-sm hover:bg-[#b02248] flex items-center gap-2 transition-colors">
-            <Plus className="w-4 h-4" /> Create Product
-          </Link>
+          {isVendorPending ? (
+            <button 
+              disabled 
+              className="px-4 py-2 bg-gray-300 text-gray-500 text-sm font-medium rounded-md cursor-not-allowed flex items-center gap-2"
+              title="SuperAdmin approval required to list products"
+            >
+              <Plus className="w-4 h-4" /> Authorization Required
+            </button>
+          ) : (
+            <Link href="/admin/products/new" className="px-4 py-2 bg-[#CD2C58] text-white text-sm font-medium rounded-md shadow-sm hover:bg-[#b02248] flex items-center gap-2 transition-colors">
+              <Plus className="w-4 h-4" /> Create Product
+            </Link>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, GitCompare, Heart, ChevronRight, X, Star, Loader2, CheckCircle2, PackageX, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { Calendar as CalendarIcon, GitCompare, Heart, ChevronRight, X, Star, Loader2, CheckCircle2, PackageX, ShoppingBag, AlertTriangle, Store, Phone, MapPin, Mail, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,13 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
   const [availabilityResult, setAvailabilityResult] = useState<{ available: boolean; reason: string } | null>(null);
 
   useEffect(() => {
+    // Check mandatory login
+    const token = localStorage.getItem('token');
+    if (!token && typeof window !== 'undefined') {
+      router.push(`/login?redirect=/product/${unwrappedParams.id}`);
+      return;
+    }
+
     const fetchProduct = async () => {
       setLoading(true);
       const res = await catalogApi.getProductById(unwrappedParams.id);
@@ -404,6 +411,74 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
             >
               <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
             </button>
+          </div>
+
+          {/* VENDOR & STORE INFORMATION CARD */}
+          <div className="mt-8 p-6 bg-gradient-to-br from-gray-50 to-purple-50/30 rounded-2xl border border-gray-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-200/80 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white rounded-xl border border-purple-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                  {product.vendor?.profile_image ? (
+                    <img src={product.vendor.profile_image} alt="Store Logo" className="w-full h-full object-cover" />
+                  ) : (
+                    <Store className="w-6 h-6 text-[#CD2C58]" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-gray-900 text-sm">
+                      {product.vendor?.business_name || product.vendor?.name || 'Verified Partner Store'}
+                    </h3>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-full flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-600" /> Verified Vendor
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500">Official Equipment Provider & Store Owner</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              {product.vendor?.phone && (
+                <div className="flex items-center gap-2 text-gray-700 bg-white p-2.5 rounded-xl border border-gray-200/60">
+                  <Phone className="w-4 h-4 text-[#CD2C58] shrink-0" />
+                  <div>
+                    <span className="text-[10px] text-gray-400 block font-bold uppercase">Store Contact Phone</span>
+                    <a href={`tel:${product.vendor.phone}`} className="font-bold text-gray-900 hover:text-[#CD2C58] transition-colors">
+                      {product.vendor.phone}
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {product.vendor?.email && (
+                <div className="flex items-center gap-2 text-gray-700 bg-white p-2.5 rounded-xl border border-gray-200/60">
+                  <Mail className="w-4 h-4 text-[#CD2C58] shrink-0" />
+                  <div>
+                    <span className="text-[10px] text-gray-400 block font-bold uppercase">Store Email</span>
+                    <a href={`mailto:${product.vendor.email}`} className="font-bold text-gray-900 hover:text-[#CD2C58] transition-colors">
+                      {product.vendor.email}
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {product.vendor?.address && (
+                <div className="col-span-full flex items-start gap-2 text-gray-700 bg-white p-2.5 rounded-xl border border-gray-200/60">
+                  <MapPin className="w-4 h-4 text-[#CD2C58] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-[10px] text-gray-400 block font-bold uppercase">Store & Dispatch Address</span>
+                    <span className="font-medium text-gray-800">{product.vendor.address}</span>
+                  </div>
+                </div>
+              )}
+
+              {product.vendor?.gst_number && (
+                <div className="col-span-full text-[11px] text-gray-500 font-medium">
+                  GST Registration: <span className="font-mono font-bold text-gray-700">{product.vendor.gst_number}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

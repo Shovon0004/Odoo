@@ -95,7 +95,22 @@ export default function SuperAdminMasterPage() {
   };
 
   useEffect(() => {
-    fetchAllSuperAdminData();
+    // Super Admin Role Protection Check
+    const checkSuperRole = async () => {
+      const res = await authApi.getProfile();
+      let role = res.data?.role;
+      if (!role) {
+        try {
+          role = JSON.parse(localStorage.getItem('user') || '{}')?.role;
+        } catch (e) {}
+      }
+      if (role !== 'SUPERADMIN' && typeof window !== 'undefined') {
+        window.location.href = '/admin';
+        return;
+      }
+      fetchAllSuperAdminData();
+    };
+    checkSuperRole();
   }, []);
 
   const handleRoleChange = async (userId: string, newRole: string) => {

@@ -32,7 +32,7 @@ const getActiveCartDetails = async (customerId) => {
         model: CartItem,
         as: 'items',
         include: [
-          { model: Product, as: 'product', attributes: ['id', 'name', 'category', 'base_price', 'status'] },
+          { model: Product, as: 'product', attributes: ['id', 'name', 'category', 'base_price', 'status', 'image_url'] },
           { model: ProductVariant, as: 'variant', attributes: ['id', 'brand', 'manufacturer', 'color', 'size', 'status'] },
           { model: RentalPeriod, as: 'rental_period', attributes: ['id', 'name', 'duration', 'unit', 'status'] },
         ],

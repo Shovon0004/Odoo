@@ -16,6 +16,10 @@ router.get('/schedule', adminOrderController.getRentalSchedule);
 router.put('/orders/:id/status', adminOrderController.updateOrderStatus);
 router.put('/orders/:id/send', adminOrderController.sendQuotation);
 router.put('/orders/:id/confirm', adminOrderController.confirmOrder);
+router.put('/orders/:id/pre-rental-handover', adminOrderController.uploadPreRentalHandover);
+router.put('/orders/:id/post-rental-return', adminOrderController.uploadPostRentalReturn);
+router.post('/orders/:id/ai-damage-inspect', adminOrderController.runAiDamageInspection);
+router.post('/orders/:id/settle-refund', adminOrderController.settleDepositToWallet);
 router.post('/orders/:orderId/create-invoice', invoiceController.createInvoice);
 router.post('/orders/:orderId/refund-deposit', invoiceController.refundDeposit);
 

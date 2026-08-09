@@ -42,6 +42,9 @@ const register = async (req, res, next) => {
         role: newUser.role,
         profile_image: newUser.profile_image || null,
         address: newUser.address || null,
+        phone: newUser.phone || null,
+        business_name: newUser.business_name || null,
+        gst_number: newUser.gst_number || null,
       },
     };
 
@@ -79,6 +82,9 @@ const login = async (req, res, next) => {
       role: user.role,
       profile_image: user.profile_image || null,
       address: user.address || null,
+      phone: user.phone || null,
+      business_name: user.business_name || null,
+      gst_number: user.gst_number || null,
     };
 
     return successResponse(res, 200, 'Login successful', {

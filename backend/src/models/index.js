@@ -18,6 +18,19 @@ const Invoice = require('./invoice.model');
 const QuotationTemplate = require('./quotation_template.model');
 const Pricelist = require('./pricelist.model');
 const PricelistRule = require('./pricelist_rule.model');
+const WalletTransaction = require('./wallet_transaction.model');
+
+// --- User & Wallet Transactions ---
+User.hasMany(WalletTransaction, {
+  foreignKey: 'user_id',
+  as: 'wallet_transactions',
+  onDelete: 'CASCADE',
+});
+
+WalletTransaction.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user',
+});
 
 // --- User & Product (Vendor) Associations ---
 User.hasMany(Product, {

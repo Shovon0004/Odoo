@@ -14,7 +14,13 @@ const createProduct = async (req, res, next) => {
       periodicity, pickup_time, return_time, padding_time, late_fees,
       security_deposit, attributes } = req.body;
 
-    validateProduct({ name, category, base_price, status });
+    if (req.user?.role === 'VENDOR') {
+      const { User } = require('../models');
+      const currentUser = await User.findByPk(req.user.id);
+      if (!currentUser || !currentUser.is_approved) {
+        throw new AppError('Vendor Authorization Required: Your store account must be approved by SuperAdmin before you can list products.', 403);
+      }
+    }
 
     const vendorId = req.user?.role === 'VENDOR' ? req.user.id : (req.body.vendor_id || null);
 

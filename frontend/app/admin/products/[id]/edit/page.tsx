@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, Image as ImageIcon, Loader2, CheckCircle2, AlertCircle, Trash2, Plus, Info } from 'lucide-react';
-import { catalogApi } from '@/lib/api';
+import { catalogApi, uploadApi } from '@/lib/api';
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -97,16 +97,31 @@ export default function EditProductPage() {
     setAttributes(attributes.map(attr => attr.id === id ? { ...attr, [field]: val } : attr));
   };
 
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert('File size too large. Please select an image under 2MB.');
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size too large. Please select an image under 10MB.');
         return;
       }
+      setUploadingImage(true);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageUrl(reader.result as string);
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        try {
+          const res = await uploadApi.uploadImage(base64, 'products');
+          if (res.success && res.data?.url) {
+            setImageUrl(res.data.url);
+          } else {
+            setImageUrl(base64);
+          }
+        } catch (err) {
+          setImageUrl(base64);
+        } finally {
+          setUploadingImage(false);
+        }
       };
       reader.readAsDataURL(file);
     }

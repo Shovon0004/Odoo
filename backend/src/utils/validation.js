@@ -105,8 +105,8 @@ const validateOrderCheckout = ({ delivery_method, delivery_address }) => {
 };
 
 const validatePaymentInitiation = ({ payment_method }) => {
-  if (!payment_method || !['ONLINE', 'CASH'].includes(payment_method)) {
-    throw new AppError('Payment method is required and must be either ONLINE or CASH', 400);
+  if (!payment_method || !['ONLINE', 'CASH', 'WALLET'].includes(payment_method)) {
+    throw new AppError('Payment method is required and must be ONLINE, CASH, or WALLET', 400);
   }
 };
 

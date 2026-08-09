@@ -123,7 +123,10 @@ export default function Login() {
         {/* Right */}
         <div className="w-full md:w-1/2 bg-[#FFE6D4] p-12 hidden md:flex flex-col justify-between relative overflow-hidden">
           <div className="relative z-10">
-            <div className="text-2xl font-black text-[#CD2C58] tracking-tight mb-8">Odoo Rentals</div>
+            <div className="flex items-center gap-3 mb-8">
+              <img src="/image.png" alt="Odoo Rentals Logo" className="h-10 w-auto object-contain rounded-lg shadow-sm" />
+              <span className="text-2xl font-black text-[#CD2C58] tracking-tight">Odoo Rentals</span>
+            </div>
             <h2 className="text-4xl font-black text-[#CD2C58] leading-tight mb-4">
               Premium Gear.<br/>Flexible Terms.
             </h2>

@@ -85,13 +85,14 @@ const createUser = async ({ name, email, hashedPassword, role = 'CUSTOMER' }) =>
 /**
  * Update user profile
  */
-const updateUserProfile = async (id, { name, profile_image, address, business_name, gst_number }) => {
+const updateUserProfile = async (id, { name, profile_image, address, business_name, gst_number, phone }) => {
   const user = await User.findByPk(id);
   if (!user) return null;
 
   if (name !== undefined) user.name = name.trim();
   if (profile_image !== undefined) user.profile_image = profile_image;
   if (address !== undefined) user.address = address;
+  if (phone !== undefined) user.phone = phone ? phone.trim() : null;
   if (business_name !== undefined) user.business_name = business_name ? business_name.trim() : null;
   if (gst_number !== undefined) user.gst_number = gst_number ? gst_number.trim().toUpperCase() : null;
 

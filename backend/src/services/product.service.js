@@ -1,4 +1,4 @@
-const { Product, ProductVariant } = require('../models');
+const { Product, ProductVariant, User } = require('../models');
 
 /**
  * Create a new product
@@ -23,6 +23,22 @@ const createProduct = async ({
   image_url = null,
   vendor_id = null
 }) => {
+  // Mandate vendor store profile completion before adding products
+  if (vendor_id) {
+    const vendorUser = await User.findByPk(vendor_id);
+    if (vendorUser && vendorUser.role === 'VENDOR') {
+      const storeName = vendorUser.business_name || vendorUser.name;
+      const hasPhone = Boolean(vendorUser.phone && vendorUser.phone.trim());
+      const hasAddress = Boolean(vendorUser.address && vendorUser.address.trim());
+      const hasName = Boolean(storeName && storeName.trim());
+
+      if (!hasName || !hasPhone || !hasAddress) {
+        const AppError = require('../utils/errors');
+        throw new AppError('Please complete your store profile (Business Name, Phone Number, and Address) in profile settings before adding products.', 400);
+      }
+    }
+  }
+
   const product = await Product.create({
     name: name.trim(),
     description: description ? description.trim() : null,
@@ -59,13 +75,20 @@ const getAllProducts = async (statusFilter, vendorIdFilter = null) => {
   }
   const products = await Product.findAll({
     where: whereClause,
+    include: [
+      {
+        model: User,
+        as: 'vendor',
+        attributes: ['id', 'name', 'business_name', 'email', 'phone', 'address', 'profile_image', 'gst_number'],
+      },
+    ],
     order: [['created_at', 'DESC']],
   });
   return products.map((p) => p.toJSON());
 };
 
 /**
- * Get single product by ID with its variants
+ * Get single product by ID with its variants & vendor store details
  */
 const getProductById = async (id) => {
   const product = await Product.findByPk(id, {
@@ -73,6 +96,11 @@ const getProductById = async (id) => {
       {
         model: ProductVariant,
         as: 'variants',
+      },
+      {
+        model: User,
+        as: 'vendor',
+        attributes: ['id', 'name', 'business_name', 'email', 'phone', 'address', 'profile_image', 'gst_number'],
       },
     ],
   });

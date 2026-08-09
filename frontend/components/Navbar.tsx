@@ -100,7 +100,10 @@ export default function Navbar() {
       <div className="max-w-[1280px] mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo and Left Links */}
         <div className="flex items-center gap-8">
-          <Link href="/" className="text-2xl font-bold text-[#CD2C58] tracking-tight">Odoo Rentals</Link>
+          <Link href="/" className="flex items-center gap-3">
+            <img src="/image.png" alt="Odoo Rentals Logo" className="h-10 w-auto object-contain rounded-lg" />
+            <span className="text-xl font-black text-[#CD2C58] tracking-tight hidden sm:inline">Odoo Rentals</span>
+          </Link>
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/" className="text-gray-600 hover:text-[#CD2C58] font-medium transition-colors">Products</Link>
             <Link href="/terms" className="text-gray-600 hover:text-[#CD2C58] font-medium transition-colors">Terms & Condition</Link>
@@ -176,6 +179,7 @@ export default function Navbar() {
               >
                 My Profile
               </Link>
+              <Link href="/wallet" className="px-4 py-2 text-sm text-gray-700 font-semibold hover:bg-gray-50 hover:text-[#CD2C58]">💳 Digital Wallet</Link>
               <Link href="/orders" className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#CD2C58]">My Orders & Quotations</Link>
               <Link href="/settings" className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#CD2C58]">Settings</Link>
               <div className="h-px bg-gray-100 my-2"></div>

@@ -199,10 +199,148 @@ const getRentalSchedule = async (req, res, next) => {
   }
 };
 
+const aiDamageInspector = require('../services/aiDamageInspector.service');
+const walletService = require('../services/wallet.service');
+const { Order } = require('../models');
+const AppError = require('../utils/errors');
+
+/**
+ * PUT /api/admin/orders/:id/pre-rental-handover
+ * Vendor uploads 3 pre-rental handover photos upon customer pickup
+ */
+const uploadPreRentalHandover = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { pre_rental_images } = req.body;
+
+    if (!Array.isArray(pre_rental_images) || pre_rental_images.length < 3) {
+      throw new AppError('Exactly 3 pre-rental handover photos are required before dispatching equipment.', 400);
+    }
+
+    const order = await Order.findByPk(id);
+    if (!order) {
+      throw new AppError('Order not found', 404);
+    }
+
+    order.pre_rental_images = pre_rental_images;
+    order.status = 'PICKED_UP';
+    await order.save();
+
+    return successResponse(res, 200, 'Pre-rental handover photos saved & order marked PICKED_UP', order);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PUT /api/admin/orders/:id/post-rental-return
+ * Vendor uploads 3 post-rental return photos upon equipment check-in
+ */
+const uploadPostRentalReturn = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { post_rental_images } = req.body;
+
+    if (!Array.isArray(post_rental_images) || post_rental_images.length < 3) {
+      throw new AppError('Exactly 3 post-rental return photos are required upon equipment check-in.', 400);
+    }
+
+    const order = await Order.findByPk(id);
+    if (!order) {
+      throw new AppError('Order not found', 404);
+    }
+
+    order.post_rental_images = post_rental_images;
+    order.status = 'RETURNED';
+    await order.save();
+
+    return successResponse(res, 200, 'Post-rental return photos saved & order marked RETURNED', order);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/admin/orders/:id/ai-damage-inspect
+ * Run AI damage comparison algorithm between pre-rental & post-rental photos
+ */
+const runAiDamageInspection = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const order = await Order.findByPk(id);
+
+    if (!order) {
+      throw new AppError('Order not found', 404);
+    }
+
+    const assessment = aiDamageInspector.analyzeDamage(
+      order.pre_rental_images || [],
+      order.post_rental_images || [],
+      order.subtotal || 1000,
+      1000 // default deposit baseline
+    );
+
+    order.damage_score = assessment.damageScore;
+    order.damage_assessment = assessment;
+    await order.save();
+
+    return successResponse(res, 200, 'AI Damage Inspection completed successfully', {
+      order_id: order.id,
+      damage_score: order.damage_score,
+      assessment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/admin/orders/:id/settle-refund
+ * Settle deposit refund and credit net amount into customer's wallet
+ */
+const settleDepositToWallet = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { refund_amount, damage_deduction, notes } = req.body;
+
+    const order = await Order.findByPk(id);
+    if (!order) {
+      throw new AppError('Order not found', 404);
+    }
+
+    const refundNum = Number(refund_amount) || 0;
+    let walletResult = null;
+
+    if (refundNum > 0) {
+      walletResult = await walletService.creditWallet(
+        order.customer_id,
+        refundNum,
+        'DEPOSIT_REFUND',
+        notes || `Security deposit refund for Order #${order.order_number} (Deductions: ₹${damage_deduction || 0})`,
+        order.id
+      );
+    }
+
+    order.status = 'COMPLETED';
+    await order.save();
+
+    return successResponse(res, 200, `Deposit settled successfully! ₹${refundNum} credited to customer wallet.`, {
+      order,
+      walletResult,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllOrders,
   updateOrderStatus,
   sendQuotation,
   confirmOrder,
   getRentalSchedule,
+  uploadPreRentalHandover,
+  uploadPostRentalReturn,
+  runAiDamageInspection,
+  settleDepositToWallet,
 };

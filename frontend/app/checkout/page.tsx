@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { CreditCard, MapPin, ShoppingBag, CheckCircle, ArrowRight, ShieldCheck, Loader2, AlertCircle, Clock } from 'lucide-react';
-import { orderApi, cartApi } from '@/lib/api';
+import { CreditCard, MapPin, ShoppingBag, CheckCircle, ArrowRight, ShieldCheck, Loader2, AlertCircle, Clock, Phone, User as UserIcon } from 'lucide-react';
+import { orderApi, cartApi, authApi } from '@/lib/api';
 
 export default function Checkout() {
   const [step, setStep] = useState(1);
@@ -13,6 +13,13 @@ export default function Checkout() {
   const [createdOrder, setCreatedOrder] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(600); // 10 minutes hold timer
+
+  const [paymentOption, setPaymentOption] = useState<'WALLET' | 'RAZORPAY' | 'CASH'>('WALLET');
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [kycStatus, setKycStatus] = useState<string>('NOT_SUBMITTED');
+
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
 
   const [deliveryMethod, setDeliveryMethod] = useState<'DELIVERY' | 'STORE_PICKUP'>('DELIVERY');
   const [address, setAddress] = useState({
@@ -59,7 +66,27 @@ export default function Checkout() {
   const [rzpLoaded, setRzpLoaded] = useState(false);
 
   useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token && typeof window !== 'undefined') {
+      window.location.href = '/login?redirect=/checkout';
+      return;
+    }
     loadCart();
+
+    // Fetch user profile for phone & address prefill
+    authApi.getProfile().then((res) => {
+      if (res.success && res.data) {
+        if (res.data.phone) setCustomerPhone(res.data.phone);
+        if (res.data.email) setCustomerEmail(res.data.email);
+        if (res.data.wallet_balance !== undefined) setWalletBalance(parseFloat(res.data.wallet_balance));
+        if (res.data.kyc_status) setKycStatus(res.data.kyc_status);
+        if (res.data.address) {
+          setAddress(prev => ({ ...prev, street: res.data.address }));
+        }
+      }
+    });
+
     // Preload Razorpay Checkout SDK
     if (typeof window !== 'undefined') {
       if ((window as any).Razorpay) {
@@ -98,8 +125,6 @@ export default function Checkout() {
   const deposit = subtotal > 0 ? 1000 : 0;
   const totalAmount = subtotal + deliveryFee + deposit;
 
-  const [paymentOption, setPaymentOption] = useState<'RAZORPAY' | 'CASH'>('RAZORPAY');
-
   const handlePlaceOrder = async () => {
     setPlacingOrder(true);
     setError(null);
@@ -121,6 +146,14 @@ export default function Checkout() {
         ? `${address.street}, ${address.city}, ${address.state} ${address.zip}`
         : 'Store Pickup Location';
 
+      // Sync phone and address to user profile if provided
+      if (customerPhone.trim()) {
+        authApi.updateProfile({
+          phone: customerPhone.trim(),
+          address: delAddress,
+        }).catch(console.error);
+      }
+
       const orderRes = await orderApi.createOrder({
         delivery_method: deliveryMethod,
         delivery_address: delAddress,
@@ -134,8 +167,8 @@ export default function Checkout() {
 
       const order = orderRes.data;
 
-      if (paymentOption === 'CASH') {
-        const payRes = await orderApi.payOrder(order.id, 'CASH');
+      if (paymentOption === 'CASH' || paymentOption === 'WALLET') {
+        const payRes = await orderApi.payOrder(order.id, paymentOption);
         setPlacingOrder(false);
 
         if (payRes.success) {
@@ -353,6 +386,38 @@ export default function Checkout() {
                 </div>
               </div>
 
+              {/* Customer Contact Details for Order Updates */}
+              <div className="col-span-full bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-4">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-[#CD2C58]" /> Contact Phone & Dispatch Updates <span className="text-red-500">*</span>
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Customer Contact Phone Number *</label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+                      <input 
+                        type="tel" 
+                        value={customerPhone} 
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="+91 9876543210" 
+                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#CD2C58]" 
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Email Confirmation Sent To</label>
+                    <input 
+                      type="email" 
+                      value={customerEmail} 
+                      disabled 
+                      className="w-full bg-gray-100 border border-gray-200 rounded-xl py-2.5 px-4 text-sm text-gray-500 font-medium" 
+                    />
+                  </div>
+                </div>
+              </div>
+
               {deliveryMethod === 'DELIVERY' && (
                 <>
                   <div className="col-span-full">
@@ -443,8 +508,35 @@ export default function Checkout() {
 
               <div className="space-y-3 mb-6">
                 <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block mb-2">
-                  Select Payment Gateway
+                  Select Payment Method
                 </label>
+
+                {/* Wallet Payment Option */}
+                <div 
+                  onClick={() => setPaymentOption('WALLET')}
+                  className={`p-4 border-2 rounded-xl cursor-pointer flex items-center justify-between transition-all ${
+                    paymentOption === 'WALLET' ? 'border-[#CD2C58] bg-white shadow-sm' : 'border-gray-200 bg-gray-100/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input type="radio" checked={paymentOption === 'WALLET'} readOnly className="text-[#CD2C58] focus:ring-[#CD2C58]" />
+                    <div>
+                      <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                        💳 Pay using Digital Wallet Balance
+                        <span className="px-2 py-0.5 text-[10px] bg-emerald-100 text-emerald-800 font-extrabold rounded-full">INSTANT</span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Available Balance: <strong className="text-emerald-700">₹{(walletBalance || 0).toFixed(2)}</strong>
+                        {walletBalance < totalAmount && (
+                          <span className="text-red-500 ml-2 font-semibold">(Insufficient balance for this order)</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Link href="/wallet" className="text-xs font-bold text-[#CD2C58] hover:underline shrink-0" onClick={(e) => e.stopPropagation()}>
+                    + Top Up
+                  </Link>
+                </div>
                 
                 <div 
                   onClick={() => setPaymentOption('RAZORPAY')}

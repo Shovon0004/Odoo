@@ -106,6 +106,11 @@ const Product = sequelize.define(
       allowNull: true,
       defaultValue: null,
     },
+    images: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
   },
   {
     tableName: 'products',

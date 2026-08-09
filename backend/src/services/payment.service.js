@@ -47,8 +47,8 @@ class PaymentService {
    * @param {Object} payload - { payment_method, simulate_failure }
    */
   async initiatePayment(customerId, orderId, { payment_method, simulate_failure = false }) {
-    if (!['ONLINE', 'CASH'].includes(payment_method)) {
-      throw new AppError('Invalid payment method. Supported methods: ONLINE, CASH', 400);
+    if (!['ONLINE', 'CASH', 'WALLET'].includes(payment_method)) {
+      throw new AppError('Invalid payment method. Supported methods: ONLINE, CASH, WALLET', 400);
     }
 
     const transaction = await sequelize.transaction();
@@ -84,13 +84,36 @@ class PaymentService {
       const securityDepositAmount = securityDepositService.calculateDeposit(rentalAmount);
       const totalAmount = Math.round((rentalAmount + securityDepositAmount) * 100) / 100;
 
-      // 3. Process payment via Mock Payment Provider
-      const mockResult = await mockPaymentService.processMockPayment({
-        amount: totalAmount,
-        currency: 'INR',
-        payment_method,
-        simulate_failure,
-      });
+      // If paying via digital wallet, check and debit wallet balance
+      if (payment_method === 'WALLET') {
+        const { User } = require('../models');
+        const walletService = require('./wallet.service');
+        const user = await User.findByPk(customerId, { transaction });
+        const currentBalance = parseFloat(user?.wallet_balance || 0);
+
+        if (currentBalance < totalAmount) {
+          throw new AppError(`Insufficient digital wallet balance. Available balance: ₹${currentBalance.toFixed(2)}. Required total: ₹${totalAmount.toFixed(2)}. Please top up your wallet or select another payment method.`, 400);
+        }
+
+        await walletService.debitWallet(
+          customerId,
+          totalAmount,
+          'RENTAL_PAYMENT',
+          `Rental checkout payment for Order #${order.order_number}`,
+          order.id,
+          transaction
+        );
+      }
+
+      // 3. Process payment via Mock Payment Provider (for ONLINE/CASH)
+      const mockResult = payment_method === 'WALLET'
+        ? { success: true, transaction_reference: `WLT_PAY_${Date.now()}`, paid_at: new Date() }
+        : await mockPaymentService.processMockPayment({
+            amount: totalAmount,
+            currency: 'INR',
+            payment_method,
+            simulate_failure,
+          });
 
       // 4. Handle Payment Failure
       if (!mockResult.success) {

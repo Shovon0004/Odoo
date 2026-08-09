@@ -29,6 +29,15 @@ const customErrorHandler = (err, req, res, next) => {
     });
   }
 
+  // Handle JSON parse / body-parser errors
+  if (err instanceof SyntaxError && (err.status === 400 || err.statusCode === 400) && 'body' in err) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid JSON payload in request body.',
+      handledBy: 'firstErrorHandler',
+    });
+  }
+
   // ❌ All other errors fall through to the 2nd Error Handler!
   next(err);
 };

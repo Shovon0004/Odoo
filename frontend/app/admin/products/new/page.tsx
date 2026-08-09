@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Image as ImageIcon, Loader2, CheckCircle2, AlertCircle, Trash2, Plus, Info } from 'lucide-react';
-import { catalogApi } from '@/lib/api';
+import { ArrowLeft, Save, Image as ImageIcon, Loader2, CheckCircle2, AlertCircle, Trash2, Plus, Info, Store, Upload } from 'lucide-react';
+import { catalogApi, authApi, uploadApi } from '@/lib/api';
 
 export default function NewProductPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'general' | 'attributes' | 'sales'>('general');
+  const [vendorProfile, setVendorProfile] = useState<any>(null);
+  const [isStoreIncomplete, setIsStoreIncomplete] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   
   // General Info
   const [name, setName] = useState('');
@@ -24,7 +27,25 @@ export default function NewProductPage() {
   // Attributes & Variants
   const [attributes, setAttributes] = useState<Array<{ id: string; name: string; values: string }>>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    const fetchVendorInfo = async () => {
+      const res = await authApi.getProfile();
+      if (res.success && res.data) {
+        setVendorProfile(res.data);
+        if (res.data.role === 'VENDOR') {
+          const sName = res.data.business_name || res.data.name;
+          const sPhone = res.data.phone;
+          const sAddress = res.data.address;
+          if (!sName || !sPhone || !sAddress || !sName.trim() || !sPhone.trim() || !sAddress.trim()) {
+            setIsStoreIncomplete(true);
+          }
+        }
+      }
+    };
+    fetchVendorInfo();
+  }, []);
+
+  useEffect(() => {
     try {
       const userStr = localStorage.getItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
@@ -67,10 +88,56 @@ export default function NewProductPage() {
     setAttributes(attributes.map(attr => attr.id === id ? { ...attr, [field]: val } : attr));
   };
 
+  const [images, setImages] = useState<string[]>(['', '', '']);
+  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
+
+  const handlePhotoUpload = (slotIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size is too large. Please select an image under 10MB.');
+      return;
+    }
+
+    setUploadingSlot(slotIndex);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await uploadApi.uploadImage(base64, 'products');
+        const finalUrl = (res.success && res.data?.url) ? res.data.url : base64;
+        setImages(prev => {
+          const updated = [...prev];
+          updated[slotIndex] = finalUrl;
+          return updated;
+        });
+      } catch (err) {
+        setImages(prev => {
+          const updated = [...prev];
+          updated[slotIndex] = base64;
+          return updated;
+        });
+      } finally {
+        setUploadingSlot(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setMessage({ type: 'error', text: 'Product name is required.' });
+      return;
+    }
+
+    const validImages = images.filter(Boolean);
+    if (validImages.length < 3) {
+      setMessage({
+        type: 'error',
+        text: 'Mandatory Requirement: Please upload all 3 photos of your product (1. Front View, 2. Side/Back View, 3. Detail/Serial Tag) before listing.'
+      });
       return;
     }
 
@@ -83,7 +150,8 @@ export default function NewProductPage() {
       category,
       base_price: parseFloat(salesPrice) || 25,
       security_deposit: parseFloat(securityDeposit) || 100,
-      image_url: imageUrl,
+      image_url: validImages[0],
+      images: validImages,
       product_type: productType,
       quantity_on_hand: parseFloat(quantityOnHand) || 100,
       cost_price: parseFloat(costPrice) || 15,
@@ -155,6 +223,26 @@ export default function NewProductPage() {
         </div>
       </div>
 
+      {isStoreIncomplete && (
+        <div className="mb-6 p-5 bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Store className="w-6 h-6 text-amber-600 shrink-0" />
+            <div>
+              <h3 className="font-bold text-amber-900 text-sm">Store Profile Completion Required Before Adding Products</h3>
+              <p className="text-xs text-amber-800 mt-0.5">
+                You must complete your vendor store profile (Store / Business Name, Phone Number, and Address) in settings before adding products.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin/profile"
+            className="px-4 py-2 bg-[#CD2C58] text-white font-bold text-xs rounded-xl shadow-sm hover:bg-[#b02248] transition-colors shrink-0"
+          >
+            Complete Store Profile Now →
+          </Link>
+        </div>
+      )}
+
       {message && (
         <div className={`mb-6 p-4 rounded-xl text-sm flex items-center gap-3 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
@@ -165,65 +253,62 @@ export default function NewProductPage() {
       {/* Main Container */}
       <div className="max-w-5xl mx-auto w-full space-y-6">
         
-        {/* Name and Image Area */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col md:flex-row gap-8 items-start">
-          <div className="w-36 h-36 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 shrink-0 overflow-hidden relative group cursor-pointer">
-            {imageUrl ? (
-              <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
-            ) : (
-              <>
-                <ImageIcon className="w-8 h-8 mb-1 text-gray-400" />
-                <span className="text-xs font-bold text-gray-400">Click to Upload</span>
-              </>
-            )}
+        {/* 3 Mandatory Photos Area */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 space-y-6">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Product Name</label>
             <input 
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onloadend = () => setImageUrl(reader.result as string);
-                  reader.readAsDataURL(file);
-                }
-              }}
-              className="absolute inset-0 opacity-0 cursor-pointer"
+              type="text" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Sony FX3 Cinema Camera Bundle" 
+              className="w-full text-2xl font-bold border-0 border-b-2 border-gray-200 focus:border-[#CD2C58] focus:ring-0 px-0 py-2 bg-transparent text-gray-900 placeholder-gray-300 outline-none"
+              required
             />
           </div>
-          
-          <div className="flex-1 space-y-4 w-full">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Product Name</label>
-              <input 
-                type="text" 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Computers" 
-                className="w-full text-2xl font-bold border-0 border-b-2 border-gray-200 focus:border-[#CD2C58] focus:ring-0 px-0 py-2 bg-transparent text-gray-900 placeholder-gray-300 outline-none"
-                required
-              />
-            </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Image (URL or File Upload)</label>
-              <div className="flex gap-2">
-                <input 
-                  type="url" 
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full text-xs border border-gray-300 rounded-xl p-2.5 focus:ring-1 focus:ring-[#CD2C58] focus:border-[#CD2C58] outline-none"
-                  placeholder="Paste Image URL or click box to upload file..."
-                />
-                {imageUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setImageUrl('')}
-                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-xl"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                Mandatory Product Photos (3 Photos Required) <span className="text-red-500">*</span>
+              </label>
+              <span className="text-xs font-medium text-gray-500">
+                {images.filter(Boolean).length}/3 Uploaded
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { title: '1. Front View', subtitle: 'Main Product Photo' },
+                { title: '2. Side/Back View', subtitle: 'Rear or Profile Angle' },
+                { title: '3. Detail / Serial', subtitle: 'Serial Tag / Close-up' }
+              ].map((slot, index) => (
+                <div key={index} className="flex flex-col items-center">
+                  <div className="w-full h-36 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 overflow-hidden relative group cursor-pointer hover:border-[#CD2C58] transition-colors">
+                    {uploadingSlot === index ? (
+                      <div className="flex flex-col items-center gap-1 text-[#CD2C58] p-2 text-center">
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span className="text-[10px] font-bold">Uploading...</span>
+                      </div>
+                    ) : images[index] ? (
+                      <img src={images[index]} alt={slot.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center p-3 text-center">
+                        <Upload className="w-6 h-6 mb-1 text-gray-400 group-hover:text-[#CD2C58] transition-colors" />
+                        <span className="text-xs font-bold text-gray-700">{slot.title}</span>
+                        <span className="text-[10px] text-gray-400">{slot.subtitle}</span>
+                      </div>
+                    )}
+                    <input 
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingSlot !== null}
+                      onChange={(e) => handlePhotoUpload(index, e)}
+                      className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -526,7 +611,6 @@ export default function NewProductPage() {
           </div>
         </div>
       </div>
-
     </form>
   );
 }
