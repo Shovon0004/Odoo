@@ -1,258 +1,508 @@
 # 🚀 Odoo-Style Multi-Vendor Rental Management System (RMS)
-
-An enterprise-grade, multi-vendor rental management platform built with **Next.js (App Router)**, **Node.js/Express**, **PostgreSQL (Sequelize ORM)**, **Cloudinary**, and **Razorpay**. Inspired by Odoo Rental, this platform automates the end-to-end rental lifecycle—from vendor store authorization and multi-attribute product listing to 3-photo handover verification, AI damage inspection, customer KYC identity verification, and digital wallet financial settlements.
-
----
-
-## 🌟 Key Features & Core Capabilities
-
-### 1. 🛡️ SuperAdmin Vendor Authorization Workflow
-- **Mandatory Approval**: New vendor registrations default to `is_approved = false`.
-- **Backend Guard**: Unapproved vendors are blocked (`403 Forbidden`) from creating or listing products until authorized by SuperAdmin.
-- **SuperAdmin Dashboard**: SuperAdmins can approve or revoke vendor listing permissions with one click in `/admin/users`.
-- **Frontend Dashboard Guard**: Displays a **"⚠️ Store Authorization Pending"** warning banner and disables product creation buttons for unauthorized vendors.
-
-### 2. 📦 Odoo-Style Product Specification & Mandatory 3 Photos
-- **Odoo Specification**: Tabbed product builder supporting General Info, Variants (Brand, Manufacturer, Color, Size), and Rental Pricing Configuration.
-- **Vendor-Scoped Rental Periods**: Vendors can define custom rental durations (Hours, Days, Weeks) with custom discount percentages.
-- **Mandatory 3 Photos**: Vendors must upload 3 distinct photos (**Front View**, **Side/Back View**, **Detail/Serial Tag**) before publishing equipment.
-
-### 3. 📷 3-Photo Handover Verification & AI Damage Inspector
-- **Pre-Rental Handover**: 3 photos captured upon customer equipment pickup.
-- **Post-Rental Return**: 3 photos captured upon equipment check-in.
-- **AI Damage Inspector Engine**: Analyzes pre-rental baseline photos against post-rental return photos, calculates a damage score (0–100%), details detected visual flaws, and recommends monetary deposit penalties.
-
-### 4. 💳 Digital Wallet System & Checkout Integration
-- **Customer & Vendor Wallet (`/wallet`)**: Digital balance ledger tracking `CREDIT`, `DEBIT`, `DEPOSIT_REFUND`, `DAMAGE_PENALTY`, and `TOP_UP`.
-- **Pay via Wallet at Checkout**: Customers can complete rental checkout using their digital wallet balance with real-time balance validation.
-- **Instant Deposit Refunds**: Net security deposit refunds (Deposit minus AI Damage Penalty) credit directly into the customer's wallet balance.
-
-### 5. 🛡️ Customer Identity KYC Verification
-- **Govt Identity Documents**: Customers submit Aadhaar Card, Passport, Driving License, or Voter ID along with photo proof.
-- **Verification Status Badges**: Real-time status indicators (`✓ VERIFIED`, `⏳ PENDING REVIEW`, `❌ REJECTED`, `⚠️ NOT SUBMITTED`).
-- **Admin Verification**: Admins review customer KYC submissions and high-res document previews in `/admin/users`.
-
-### 6. 🗓️ Schedule Calendar & Overdue Management
-- **Interactive Schedule Dashboard (`/admin/schedule`)**: Kanban & calendar view of pending pickups, active rentals, and returns due today.
-- **Automated Late Fee Engine**: Calculates daily late fees for overdue equipment returns.
-- **Automatic Invoicing**: Generates PDF/printable invoices for rentals and settlements.
+### *Enterprise-Grade Multi-Tenant Rental Platform with AI Damage Inspection, SuperAdmin Vendor Authorization, Digital Wallet Ledger & Concurrency Control*
 
 ---
 
-## 🏗️ Technical Architecture & Tech Stack
+## 📑 Table of Contents
+1. [Executive Summary & Core Objectives](#-executive-summary--core-objectives)
+2. [High-Level Architectural Framework](#-high-level-architectural-framework)
+3. [Component Architecture & Design Patterns](#-component-architecture--design-patterns)
+4. [System Sequence & Workflow Diagrams](#-system-sequence--workflow-diagrams)
+   - [SuperAdmin Vendor Authorization Workflow](#1-superadmin-vendor-authorization-workflow)
+   - [Rental Checkout & 10-Minute Inventory Lock Engine](#2-rental-checkout--10-minute-inventory-lock-engine)
+   - [3-Photo Handover Verification & AI Damage Inspector](#3-3-photo-handover-verification--ai-damage-inspector)
+   - [Digital Wallet Settlement & Deposit Lifecycle](#4-digital-wallet-settlement--deposit-lifecycle)
+5. [Comprehensive Database Schema & Data Dictionary](#-comprehensive-database-schema--data-dictionary)
+6. [Complete REST API Specification](#-complete-rest-api-specification)
+7. [Security & Concurrency Control Engineering](#-security--concurrency-control-engineering)
+8. [Installation, Environment & Database Seeding](#-installation-environment--database-seeding)
+9. [User Role Privileges & Access Matrix](#-user-role-privileges--access-matrix)
+10. [Production Deployment & DevOps Guide](#-production-deployment--devops-guide)
+
+---
+
+## 📋 Executive Summary & Core Objectives
+
+Modern rental operations face distinct challenges: track asset availability, prevent double bookings under peak traffic, manage multi-vendor inventory safely, calculate variable late fees, inspect hardware condition across handovers, and handle security deposits cleanly.
+
+Inspired by **Odoo Rental Management**, this platform provides a unified interface for **Vendors**, **Customers**, and **SuperAdmins**:
+- **Multi-Vendor Governance**: Restricts unapproved vendors from creating listings until approved by SuperAdmins.
+- **Visual Proof & AI Diagnostics**: Enforces a 3-photo proof standard (Pre-Rental & Post-Rental) combined with an algorithmic AI Damage Inspection Engine.
+- **Financial Ledger & Wallet**: Integrates a digital wallet for instant deposit refunds, damage penalty deductions, and seamless checkout payments.
+- **Stock Lock Engine**: Enforces a 10-minute inventory reservation timer to prevent race conditions during concurrent user checkouts.
+
+---
+
+## 🏛️ High-Level Architectural Framework
+
+The application follows a decoupled **Client-Server Architecture** utilizing **Next.js App Router** for rendering and interactive dashboards, connected via JSON REST APIs to a high-concurrency **Express.js / Node.js** backend powered by **PostgreSQL** and **Sequelize ORM**.
 
 ```
-   ┌─────────────────────────────────────────────────────────┐
-   │                  Next.js (App Router)                   │
-   │  React 19 • Tailwind CSS • Lucide Icons • Client State  │
-   └────────────────────────────┬────────────────────────────┘
-                                │ REST API (JSON)
-   ┌────────────────────────────▼────────────────────────────┐
-   │                    Express.js Backend                   │
-   │ Authenticated Routes • Controllers • Services • Middleware│
-   └──────┬─────────────────────┬─────────────────────┬──────┘
-          │                     │                     │
-   ┌──────▼──────┐       ┌──────▼──────┐       ┌──────▼──────┐
-   │ PostgreSQL  │       │ Cloudinary  │       │  Razorpay   │
-   │ (Sequelize) │       │ Image Upload│       │ Payment SDK │
-   └─────────────┘       └─────────────┘       └─────────────┘
-```
-
-### Stack Breakdown:
-- **Frontend**: Next.js 16 (App Router), React, Tailwind CSS, Lucide React.
-- **Backend**: Node.js, Express.js, Sequelize ORM, PostgreSQL.
-- **Storage & Hosting**: Cloudinary API (Base64 & image URL uploads).
-- **Payment Processing**: Razorpay Gateway (Test Mode) & Internal Wallet Ledger.
-
----
-
-## 📊 Database Schema Design
-
-```
- Users (SUPERADMIN, ADMIN, VENDOR, CUSTOMER)
-   │
-   ├──< Products (vendor_id)
-   │       │
-   │       └──< ProductVariants
-   │
-   ├──< Carts (customer_id)
-   │       │
-   │       └──< CartItems (product_id, variant_id, rental_period_id)
-   │
-   ├──< Orders (customer_id)
-   │       │
-   │       ├──< OrderItems
-   │       ├──< Payments
-   │       ├──< SecurityDeposits
-   │       ├──< RentalPickups (Pre-Rental 3 Photos)
-   │       ├──< RentalReturns (Post-Rental 3 Photos & AI Damage Score)
-   │       └──< Invoices
-   │
-   └──< WalletTransactions (user_id)
-```
-
-### Key Models & Schemas
-
-#### 1. `User` Model (`users` table)
-- `id` (UUID, Primary Key)
-- `name`, `email`, `password_hash`, `role` (`SUPERADMIN`, `ADMIN`, `VENDOR`, `CUSTOMER`)
-- `business_name`, `phone`, `address`, `gst_number`
-- `is_approved` (BOOLEAN, default: `false`) - SuperAdmin Vendor Authorization Flag
-- `wallet_balance` (DECIMAL, default: `0.00`)
-- `kyc_status` (`NOT_SUBMITTED`, `PENDING`, `VERIFIED`, `REJECTED`)
-- `kyc_id_type`, `kyc_id_number`, `kyc_document_url`
-
-#### 2. `Product` Model (`products` table)
-- `id` (UUID, Primary Key)
-- `vendor_id` (Foreign Key -> `users.id`)
-- `name`, `description`, `category`, `base_price`, `quantity_on_hand`
-- `images` (JSON ARRAY) - Mandatory 3 photos: `[front_view, side_view, serial_tag]`
-- `status` (`ACTIVE`, `INACTIVE`)
-
-#### 3. `RentalPickup` & `RentalReturn` Models
-- `order_id` (Foreign Key -> `orders.id`)
-- `pre_rental_photos` (JSON ARRAY) - 3 handover photos
-- `post_rental_photos` (JSON ARRAY) - 3 return inspection photos
-- `ai_damage_score` (FLOAT 0.0 - 1.0)
-- `ai_damage_notes` (TEXT)
-- `recommended_penalty` (DECIMAL)
-
-#### 4. `WalletTransaction` Model (`wallet_transactions` table)
-- `id` (UUID, Primary Key)
-- `user_id` (Foreign Key -> `users.id`)
-- `amount`, `type` (`CREDIT`, `DEBIT`)
-- `category` (`DEPOSIT_REFUND`, `DAMAGE_PENALTY`, `RENTAL_PAYMENT`, `TOP_UP`)
-- `description`, `order_id`
-
----
-
-## 🛠️ Installation & Setup Guide
-
-### Prerequisites
-- **Node.js** (v18+ or v22+)
-- **PostgreSQL** (Running locally on port 5432 or remote URI)
-- **Git**
-
----
-
-### Step 1: Clone Repository & Install Dependencies
-
-```bash
-# Clone the repository
-git clone https://github.com/Shovon0004/Odoo.git
-cd Odoo
-
-# Install Backend Dependencies
-cd backend
-npm install
-
-# Install Frontend Dependencies
-cd ../frontend
-npm install
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                             PRESENTATION TIER (FRONTEND)                          │
+│                                                                                  │
+│   ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────┐   │
+│   │   Customer Portal    │    │   Vendor Dashboard   │    │ SuperAdmin Suite │   │
+│   │  Catalog, Cart, KYC, │    │ Product Spec, Handover│    │ User Approvals,  │   │
+│   │  Checkout, Wallet    │    │ & AI Inspector Suite │    │ KYC Verification │   │
+│   └──────────┬───────────┘    └──────────┬───────────┘    └────────┬─────────┘   │
+│              │                           │                         │             │
+│              └───────────────────────────┼─────────────────────────┘             │
+│                                          │ Next.js Client API Bridge (Axios/Fetch)│
+└──────────────────────────────────────────┼───────────────────────────────────────┘
+                                           │ HTTPS / JSON REST API
+┌──────────────────────────────────────────▼───────────────────────────────────────┐
+│                              APPLICATION TIER (BACKEND)                          │
+│                                                                                  │
+│   ┌──────────────────────────────────────────────────────────────────────────┐   │
+│   │                         Express.js REST API Server                       │   │
+│   │  ├── JWT Authentication & Role-Based Access Control (RBAC)               │   │
+│   │  ├── Stock Reservation & Concurrency Mutex Manager                       │   │
+│   │  ├── AI Image Damage Inspection Engine                                   │   │
+│   │  └── Atomic Financial Ledger & Wallet Service                            │   │
+│   └──────────────────────────────────────┬───────────────────────────────────┘   │
+└──────────────────────────────────────────┼───────────────────────────────────────┘
+                                           │
+┌──────────────────────────────────────────▼───────────────────────────────────────┐
+│                               PERSISTENCE & CLOUD TIER                           │
+│                                                                                  │
+│   ┌────────────────────────┐  ┌────────────────────────┐  ┌────────────────────┐ │
+│   │ PostgreSQL Database    │  │  Cloudinary CDN        │  │  Razorpay Gateway  │ │
+│   │ ACID Transactions,     │  │  Product & Inspection  │  │  PCI-DSS Compliant │ │
+│   │ Relational Foreign Keys│  │  Photo Storage         │  │  Test Payment SDK  │ │
+│   └────────────────────────┘  └────────────────────────┘  └────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Step 2: Configure Environment Variables
+## 🧩 Component Architecture & Design Patterns
 
-#### Backend `.env` (`backend/.env`)
+### 1. Repository & Service Layer Pattern (Backend)
+- **Controller Layer**: Parses request parameters, enforces validation rules, calls appropriate services, and returns standardized JSON responses (`successResponse` / `AppError`).
+- **Service Layer**: Implements business rules (`orderService`, `paymentService`, `walletService`, `pickupService`, `aiDamageInspectorService`).
+- **Data Access Layer**: Sequelize ORM models executing SQL queries wrapped in **ACID Transactions**.
+
+### 2. Middleware Pipeline Guard Pattern
+- `authenticateToken`: Decodes JWT tokens from HTTP Authorization headers (`Bearer <token>`).
+- `authorizeRoles(...roles)`: Verifies user role (`SUPERADMIN`, `ADMIN`, `VENDOR`, `CUSTOMER`).
+- `errorHandler`: Global error handling middleware ensuring no raw stack traces leak to clients.
+
+### 3. Atomic Financial Ledger Pattern
+- All wallet credits, debits, deposit holds, and penalty deductions use atomic PostgreSQL database transactions (`sequelize.transaction()`).
+
+---
+
+## 🔄 System Sequence & Workflow Diagrams
+
+### 1. SuperAdmin Vendor Authorization Workflow
+
+```
+[ New Vendor ]          [ Express API ]        [ SuperAdmin ]          [ PostgreSQL ]
+      │                        │                      │                      │
+      ├─── Register Store ────►│                      │                      │
+      │    (is_approved=false) │                      │                      │
+      │                        ├──────────────────────┼─────────────────────►│ Save Vendor (PENDING)
+      │                        │                      │                      │
+      ├─── Attempt Create ────►│                      │                      │
+      │    Product Listing     │                      │                      │
+      │                        ├── Check Approval ────┼─────────────────────►│ Query is_approved
+      │                        │   (Returns FALSE)    │                      │
+      │◄── 403 Forbidden ──────┤                      │                      │
+      │    "Approval Required"  │                      │                      │
+      │                        │                      │                      │
+      │                        │◄── Approve Vendor ───┤                      │
+      │                        │    PUT /users/:id    │                      │
+      │                        │                      ├─────────────────────►│ UPDATE is_approved=true
+      │                        ├─── 200 OK ──────────►│                      │
+      │                        │                      │                      │
+      ├─── Create Product ────►│                      │                      │
+      │                        ├── Check Approval ────┼─────────────────────►│ Returns TRUE
+      │◄── 201 Published ──────┼──────────────────────┼─────────────────────►│ Save Product Listing
+```
+
+---
+
+### 2. Rental Checkout & 10-Minute Inventory Lock Engine
+
+```
+[ Customer ]             [ Express API ]        [ Stock Manager ]       [ PostgreSQL ]
+     │                          │                       │                      │
+     ├─── Initiate Checkout ───►│                       │                      │
+     │                          ├── Lock Stock ────────►│                      │
+     │                          │   (Set Hold Window)   ├─────────────────────►│ Decrement quantity_on_hand
+     │                          │                       │                      │ Set expires_at = NOW + 10m
+     │◄── Order PENDING ────────┤                       │                      │
+     │    (10 Min Timer Active) │                       │                      │
+     │                          │                       │                      │
+     ├─── Pay via Wallet/Online►│                       │                      │
+     │                          ├── Validate Payment    │                      │
+     │                          │   & Wallet Balance    │                      │
+     │                          ├───────────────────────┼─────────────────────►│ Confirm Order (status=CONFIRMED)
+     │                          │                       │                      │ Clear expires_at
+     │◄── 200 OK Confirmed ─────┤                       │                      │
+```
+
+---
+
+### 3. 3-Photo Handover Verification & AI Damage Inspector
+
+```
+[ Vendor ]               [ Express API ]     [ AI Inspection Engine ]   [ Cloudinary ]
+    │                           │                       │                      │
+    ├── Upload 3 Pre-Rental ───►│                       │                      │
+    │   Photos (Pickup)         ├───────────────────────┼─────────────────────►│ Upload Photos
+    │                           ├───────────────────────┼─────────────────────►│ Save Photo URLs
+    │                           │                       │                      │
+    ├── Upload 3 Post-Rental ──►│                       │                      │
+    │   Photos (Return)         ├── Analyze Variance ──►│                      │
+    │                           │   Pre vs Post Photos  │                      │
+    │                           │                       ├── Compute Score (0-100%)
+    │                           │                       ├── Detect Visual Flaws
+    │                           │◄── Damage Report ─────┤ Recommend Penalty    │
+    │◄── Display Assessment ────┤    (Score, Notes, Fee)│                      │
+```
+
+---
+
+### 4. Digital Wallet Settlement & Deposit Lifecycle
+
+```
+   [ Customer Rental Checkout ]
+                │
+                ▼
+     ₹1,000 Security Deposit Held
+                │
+                ▼
+   [ Vendor Checks-In Equipment ]
+                │
+                ▼
+   [ AI Damage Assessment Run ]
+   ├── Score: 15% Visual Scratches
+   └── Calculated Penalty: ₹300.00
+                │
+                ▼
+   [ Final Settlement Executed ]
+   ├── Debit Penalty: ₹300.00 -> Credit Vendor Ledger
+   └── Net Refund: ₹700.00 -> Credit Customer Wallet
+                │
+                ▼
+   [ Customer Wallet Ledger Updated ]
+   Available Balance: ₹700.00 (Ready for next rental checkout)
+```
+
+---
+
+## 🗄️ Comprehensive Database Schema & Data Dictionary
+
+The application database consists of **21 PostgreSQL Relational Tables** managed via Sequelize ORM.
+
+### 1. `users` Table
+Stores SuperAdmins, Admins, Vendors, and Customers.
+| Column | Data Type | Nullable | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | UUID | NO | `gen_random_uuid()` | Primary Key |
+| `name` | VARCHAR(255) | NO | - | Full User Name |
+| `email` | VARCHAR(255) | NO | - | Unique Login Email |
+| `password` | VARCHAR(255) | NO | - | Bcrypt Hashed Password |
+| `role` | ENUM | NO | `'CUSTOMER'` | `'SUPERADMIN'`, `'ADMIN'`, `'VENDOR'`, `'CUSTOMER'` |
+| `business_name` | VARCHAR(255) | YES | NULL | Store Name for Vendors |
+| `phone` | VARCHAR(50) | YES | NULL | Contact Phone Number |
+| `address` | TEXT | YES | NULL | Shipping/Store Address |
+| `gst_number` | VARCHAR(50) | YES | NULL | GST Identification Number |
+| `profile_image` | TEXT | YES | NULL | Avatar URL |
+| `is_approved` | BOOLEAN | NO | `false` | SuperAdmin Vendor Listing Approval Flag |
+| `wallet_balance` | DECIMAL(10,2)| NO | `0.00` | Current Digital Wallet Balance |
+| `kyc_status` | ENUM | NO | `'NOT_SUBMITTED'`| `'NOT_SUBMITTED'`, `'PENDING'`, `'VERIFIED'`, `'REJECTED'` |
+| `kyc_id_type` | VARCHAR(100) | YES | NULL | Government ID Type |
+| `kyc_id_number` | VARCHAR(100) | YES | NULL | Government ID Document Number |
+| `kyc_document_url`| TEXT | YES | NULL | Cloudinary Image URL of ID |
+| `created_at` | TIMESTAMP | NO | `NOW()` | Creation Timestamp |
+
+---
+
+### 2. `products` Table
+Stores rental equipment hardware listings.
+| Column | Data Type | Nullable | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | UUID | NO | `gen_random_uuid()` | Primary Key |
+| `vendor_id` | UUID | NO | - | Foreign Key -> `users.id` |
+| `name` | VARCHAR(255) | NO | - | Equipment Product Name |
+| `description` | TEXT | YES | NULL | Detailed Product Specifications |
+| `category` | VARCHAR(100) | NO | - | Equipment Category |
+| `base_price` | DECIMAL(10,2)| NO | - | Daily Base Rental Rate |
+| `quantity_on_hand`| INTEGER | NO | `1` | Available Hardware Inventory |
+| `images` | JSONB | NO | `[]` | Array of 3 Photo URLs `[Front, Back, Tag]` |
+| `status` | ENUM | NO | `'ACTIVE'` | `'ACTIVE'`, `'INACTIVE'` |
+| `created_at` | TIMESTAMP | NO | `NOW()` | Creation Timestamp |
+
+---
+
+### 3. `orders` Table
+Stores customer rental bookings and status.
+| Column | Data Type | Nullable | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | UUID | NO | `gen_random_uuid()` | Primary Key |
+| `order_number` | VARCHAR(50) | NO | - | Unique Human-Readable Order Code |
+| `customer_id` | UUID | NO | - | Foreign Key -> `users.id` |
+| `status` | ENUM | NO | `'PENDING_PAYMENT'`| `'PENDING_PAYMENT'`, `'CONFIRMED'`, `'PICKED_UP'`, `'RETURNED'`, `'CANCELLED'` |
+| `subtotal` | DECIMAL(10,2)| NO | - | Equipment Rental Charge |
+| `delivery_fee` | DECIMAL(10,2)| NO | `0.00` | Shipping Delivery Fee |
+| `delivery_method`| ENUM | NO | `'DELIVERY'` | `'DELIVERY'`, `'STORE_PICKUP'` |
+| `delivery_address`| TEXT | YES | NULL | Destination Address |
+| `start_date` | TIMESTAMP | NO | - | Rental Start Time |
+| `end_date` | TIMESTAMP | NO | - | Scheduled Return Time |
+| `expires_at` | TIMESTAMP | YES | NULL | 10-Minute Reservation Hold Timer |
+
+---
+
+### 4. `wallet_transactions` Table
+Stores the audit ledger for all wallet balances.
+| Column | Data Type | Nullable | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | UUID | NO | `gen_random_uuid()` | Primary Key |
+| `user_id` | UUID | NO | - | Foreign Key -> `users.id` |
+| `amount` | DECIMAL(10,2)| NO | - | Transaction Amount |
+| `type` | ENUM | NO | - | `'CREDIT'`, `'DEBIT'` |
+| `category` | ENUM | NO | - | `'DEPOSIT_REFUND'`, `'DAMAGE_PENALTY'`, `'RENTAL_PAYMENT'`, `'TOP_UP'` |
+| `description` | TEXT | YES | NULL | Transaction Notes |
+| `order_id` | UUID | YES | NULL | Foreign Key -> `orders.id` |
+| `created_at` | TIMESTAMP | NO | `NOW()` | Transaction Timestamp |
+
+---
+
+## 📡 Complete REST API Specification
+
+### Authentication & Profiles
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "password": "securepassword",
+  "role": "CUSTOMER"
+}
+```
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jane@example.com",
+  "password": "securepassword"
+}
+```
+
+```http
+POST /api/users/kyc
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "kyc_id_type": "Aadhaar Card",
+  "kyc_id_number": "1234 5678 9012",
+  "kyc_document_url": "https://res.cloudinary.com/demo/image/upload/v123/aadhaar.jpg"
+}
+```
+
+---
+
+### Products & Listings
+```http
+POST /api/products
+Authorization: Bearer <vendor_jwt_token>
+Content-Type: application/json
+
+{
+  "name": "Sony FX3 Cinema Camera",
+  "description": "Full-frame cinema camera with 4K 120fps capability.",
+  "category": "Cameras",
+  "base_price": 2500,
+  "quantity_on_hand": 3,
+  "images": [
+    "https://res.cloudinary.com/demo/image/upload/v1/front.jpg",
+    "https://res.cloudinary.com/demo/image/upload/v1/back.jpg",
+    "https://res.cloudinary.com/demo/image/upload/v1/serial.jpg"
+  ]
+}
+```
+
+---
+
+### Checkout & Digital Wallet
+```http
+POST /api/orders/:orderId/payment
+Authorization: Bearer <customer_jwt_token>
+Content-Type: application/json
+
+{
+  "payment_method": "WALLET"
+}
+```
+
+```http
+POST /api/wallet/topup
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "amount": 5000
+}
+```
+
+---
+
+### Handover Verification & AI Damage Inspector
+```http
+POST /api/schedule/:orderId/return
+Authorization: Bearer <vendor_jwt_token>
+Content-Type: application/json
+
+{
+  "photos": [
+    "https://res.cloudinary.com/demo/image/upload/v1/return_front.jpg",
+    "https://res.cloudinary.com/demo/image/upload/v1/return_back.jpg",
+    "https://res.cloudinary.com/demo/image/upload/v1/return_tag.jpg"
+  ]
+}
+```
+
+---
+
+## 🔒 Security & Concurrency Control Engineering
+
+1. **Race Condition Prevention**: Orders place a 10-minute hold (`expires_at`) on requested inventory items. Expired holds automatically release inventory back into the public pool if payment is not completed within 10 minutes.
+2. **ACID Financial Transactions**: All wallet balance deductions, security deposit holds, and penalty allocations execute inside atomic PostgreSQL transactions (`sequelize.transaction()`).
+3. **Role-Based Privilege Guards**: Route handlers check role permissions (`SUPERADMIN`, `ADMIN`, `VENDOR`, `CUSTOMER`) before executing state updates.
+4. **Strict Request Body Validation**: Request bodies pass through sanitation checks to ensure non-strict JSON payloads do not cause uncaught server exceptions.
+
+---
+
+## 💻 Installation, Environment & Database Seeding
+
+### 1. Environment Setup
+
+#### Backend Environment File (`backend/.env`)
 ```env
 PORT=5000
 NODE_ENV=development
-JWT_SECRET=your_jwt_secret_key_here
+JWT_SECRET=super_secret_jwt_key_2026
 
-# PostgreSQL Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=odoo_rental_db
 DB_USER=postgres
 DB_PASSWORD=postgres
 
-# Cloudinary Configuration
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 
-# Razorpay Configuration (Test Mode)
 RAZORPAY_KEY_ID=rzp_test_TNW0BBn4eKHxzc
 RAZORPAY_KEY_SECRET=W0U4a3dyU3skpYom4tDdrEYA
 ```
 
-#### Frontend `.env.local` (`frontend/.env.local`)
+#### Frontend Environment File (`frontend/.env.local`)
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api
 ```
 
 ---
 
-### Step 3: Database Reset & Seed Data
+### 2. Database Sync & Seeding
 
-Run the database seed script to automatically create PostgreSQL tables, populate demo users, equipment products, rental periods, sample orders, and wallet balances:
-
+Run the seed script to reset tables and populate demo accounts:
 ```bash
 cd backend
 node src/seed.js
 ```
 
----
+### 3. Launching Servers
 
-### Step 4: Run Application Servers
-
-#### Start Backend Server
 ```bash
+# Terminal 1: Backend API Server
 cd backend
 npm run dev
-# Backend running at: http://localhost:5000
-```
 
-#### Start Frontend Application
-```bash
+# Terminal 2: Frontend Next.js Server
 cd frontend
 npm run dev
-# Frontend running at: http://localhost:3000
 ```
 
 ---
 
-## 🔑 Demo Account Credentials
+## 🔑 User Role Privileges & Access Matrix
 
-| Role | Email | Password | Listing Approval |
-| :--- | :--- | :--- | :--- |
-| **SuperAdmin** | `super@admin123` | `admin123` | N/A |
-| **Approved Vendor** | `vendor@rental.com` | `vendor123` | `✓ APPROVED` |
-| **New Pending Vendor** | `newvendor@rental.com` | `vendor123` | `⏳ PENDING` |
-| **Customer** | `customer@gmail.com` | `customer123` | N/A |
+| Feature / Resource | Customer | Vendor (Unapproved) | Vendor (Approved) | SuperAdmin / Admin |
+| :--- | :---: | :---: | :---: | :---: |
+| Browse Product Catalog & Search | ✓ | ✓ | ✓ | ✓ |
+| Submit Government Identity KYC | ✓ | ✓ | ✓ | ✓ |
+| Add Products to Cart & Rent | ✓ | ❌ | ❌ | ✓ |
+| Pay via Wallet / Razorpay | ✓ | ❌ | ❌ | ✓ |
+| Create & List Equipment Products | ❌ | ❌ (Blocked) | ✓ | ✓ |
+| Upload 3-Photo Pickup / Return | ❌ | ❌ | ✓ | ✓ |
+| Run AI Damage Inspector | ❌ | ❌ | ✓ | ✓ |
+| Authorize Vendor Store Accounts | ❌ | ❌ | ❌ | **✓ FULL ACCESS** |
+| Approve / Reject Customer KYC | ❌ | ❌ | ❌ | **✓ FULL ACCESS** |
 
 ---
 
-## 🔗 Major API Endpoints Summary
+## 🚀 Production Deployment & DevOps Guide
 
-### Authentication & Users
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User authentication
-- `GET /api/auth/me` - Fetch authenticated user profile
-- `POST /api/users/kyc` - Submit government ID KYC document
-- `PUT /api/users/:id/approval` - SuperAdmin toggle vendor authorization status
-- `PUT /api/users/:id/kyc-status` - Admin approve/reject customer KYC
+### 1. Production Build Verification
 
-### Products & Inventory
-- `GET /api/products` - List products with filter & search
-- `POST /api/products` - Create product (Requires 3 photos & Vendor Authorization)
-- `PUT /api/products/:id` - Update product details
-- `DELETE /api/products/:id` - Remove product listing
+```bash
+# Test Next.js Production Compilation
+cd frontend
+npm run build
 
-### Checkout, Payments & Digital Wallet
-- `POST /api/orders` - Create rental order from cart
-- `POST /api/orders/:orderId/payment` - Process payment (`ONLINE`, `CASH`, `WALLET`)
-- `GET /api/wallet` - Fetch user digital wallet balance & ledger history
-- `POST /api/wallet/topup` - Add funds to digital wallet
+# Start Next.js Production Server
+npm run start
+```
 
-### Inspection & Handover
-- `POST /api/schedule/:orderId/pickup` - Upload 3 pre-rental handover photos
-- `POST /api/schedule/:orderId/return` - Upload 3 post-rental photos & run AI Damage Inspector
-- `POST /api/schedule/:orderId/settle` - Refund security deposit to customer wallet minus AI damage fee
+### 2. Managing Backend with PM2
+
+```bash
+cd backend
+npm install -g pm2
+pm2 start src/server.js --name "odoo-rental-backend"
+pm2 save
+```
+
+---
+
+### 3. Nginx Reverse Proxy Configuration
+
+```nginx
+server {
+    listen 80;
+    server_name rental.yourdomain.com;
+
+    # Frontend App Router
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Express Backend REST API
+    location /api/ {
+        proxy_pass http://localhost:5000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
 
 ---
 
 ## 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the **MIT License** - see the `LICENSE` file for details.
